@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { SearchIcon, MapPinIcon, CloseIcon, CrosshairIcon, CheckIcon, ShareIcon } from './Icons';
 import api from '../api/client';
 import { useModal } from '../context/ModalContext';
 
@@ -49,6 +50,9 @@ export default function MapAddressPicker({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  // 'idle' | 'locating' | 'found' | 'error' — drives the my-location button
+  const [locateState, setLocateState] = useState('idle');
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
@@ -216,31 +220,69 @@ export default function MapAddressPicker({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Use GPS device geolocation
+  // Use GPS device geolocation. Mirrors the Google Maps behaviour: a clear
+  // locating state, and an explicit reason when it does not work rather than
+  // silently dropping the pin somewhere else.
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      showAlert('Geolocation is not supported by your browser.', 'Location Error', 'warning');
+      setLocateState('error');
+      showAlert(
+        'This browser cannot share your location. Search for your area or drag the pin instead.',
+        'Location Unavailable',
+        'warning'
+      );
       return;
     }
 
+    setLocateState('locating');
+    setShowSearchResults(false);
     setIsReverseGeocoding(true);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
+        setGpsAccuracy(accuracy ? Math.round(accuracy) : null);
+        setLocateState('found');
         if (leafletMapRef.current) {
-          leafletMapRef.current.flyTo([latitude, longitude], 16);
+          leafletMapRef.current.flyTo([latitude, longitude], 17);
         }
         handleLocationSelect(latitude, longitude, true);
       },
-      () => {
-        // Default to central Kathmandu if denied
-        if (leafletMapRef.current) {
-          leafletMapRef.current.flyTo([KATHMANDU_CENTER.lat, KATHMANDU_CENTER.lng], 15);
-        }
-        handleLocationSelect(KATHMANDU_CENTER.lat, KATHMANDU_CENTER.lng, true);
+      (err) => {
+        setLocateState('error');
+        setIsReverseGeocoding(false);
+        const message =
+          err.code === err.PERMISSION_DENIED
+            ? 'Location permission is blocked. Allow location for this site in your browser settings, or search for your area below.'
+            : err.code === err.TIMEOUT
+            ? 'Could not get a GPS fix in time. Try again outdoors, or search for your area below.'
+            : 'Your location is unavailable right now. Search for your area or drag the pin instead.';
+        showAlert(message, 'Cannot Share Location', 'warning');
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
+  };
+
+  // Copies the confirmed drop-off so it can be pasted to a rider or a friend
+  const handleShareLocation = async () => {
+    const text = `${addressTitle}${landmark.trim() ? ` (${landmark.trim()})` : ''}\n` +
+      `${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}\n` +
+      `https://www.openstreetmap.org/?mlat=${currentCoords.lat}&mlon=${currentCoords.lng}#map=18/${currentCoords.lat}/${currentCoords.lng}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Valley Express drop-off', text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      showAlert('Drop-off location copied to the clipboard.', 'Location Shared', 'success');
+    } catch {
+      showAlert(
+        `Could not share automatically. Your drop-off is:\n\n${text}`,
+        'Share Location',
+        'info'
+      );
+    }
   };
 
   const handleConfirm = () => {
@@ -301,7 +343,7 @@ export default function MapAddressPicker({
             boxShadow: '0 4px 12px rgba(0, 56, 147, 0.15)',
           }}
         >
-          <span style={{ fontSize: '18px', marginRight: '8px', color: '#003893' }}>🔍</span>
+          <span style={{ marginRight: '8px', color: '#003893', display: 'flex' }}><SearchIcon size={17} /></span>
           <input
             type="text"
             value={searchQuery}
@@ -338,7 +380,7 @@ export default function MapAddressPicker({
                 padding: '4px 8px',
               }}
             >
-              ✕
+              <CloseIcon size={13} />
             </button>
           )}
           {isModal && onClose && (
@@ -373,6 +415,39 @@ export default function MapAddressPicker({
               boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
             }}
           >
+            {/* Google-style first row: jump straight to the device location */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={handleUseCurrentLocation}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleUseCurrentLocation();
+                }
+              }}
+              style={{
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                cursor: 'pointer',
+                borderBottom: '1px solid #F3F4F6',
+                background: '#FFFFFF',
+              }}
+            >
+              <span style={{ color: '#003893', display: 'flex' }}>
+                <CrosshairIcon size={16} />
+              </span>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#003893' }}>
+                  {locateState === 'locating' ? 'Locating you…' : 'Use my current location'}
+                </div>
+                <div style={{ fontSize: '10px', color: '#646982' }}>
+                  Share GPS so the rider finds you exactly
+                </div>
+              </div>
+            </div>
             {searchResults.map((item, idx) => (
               <div
                 key={item.id || idx}
@@ -396,7 +471,7 @@ export default function MapAddressPicker({
                 onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
               >
-                <span style={{ fontSize: '16px', color: '#FF6B1A' }}>📍</span>
+                <span style={{ color: '#FF6B1A', display: 'flex' }}><MapPinIcon size={15} /></span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#003893' }}>
                     {item.name}
@@ -443,7 +518,7 @@ export default function MapAddressPicker({
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               }}
             >
-              📍 {zone.name}
+              <MapPinIcon size={12} /> {zone.name}
             </button>
           ))}
         </div>
@@ -504,15 +579,50 @@ export default function MapAddressPicker({
         <button
           type="button"
           onClick={handleUseCurrentLocation}
-          title="Use My Current GPS Location"
+          disabled={locateState === 'locating'}
+          title={
+            locateState === 'locating'
+              ? 'Locating you…'
+              : locateState === 'error'
+              ? 'Location blocked — tap to try again'
+              : 'Use my current location'
+          }
           style={{
             width: '42px',
             height: '42px',
             borderRadius: '50%',
             background: '#FFFFFF',
-            border: '2px solid #003893',
-            color: '#003893',
+            border: `2px solid ${locateState === 'error' ? '#EF4444' : '#003893'}`,
+            color: locateState === 'error' ? '#EF4444' : '#003893',
             fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: locateState === 'locating' ? 'wait' : 'pointer',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            animation: locateState === 'locating' ? 'valleyLocatePulse 1s ease-in-out infinite' : 'none',
+          }}
+        >
+          <style>{`
+            @keyframes valleyLocatePulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.45; }
+            }
+          `}</style>
+          <CrosshairIcon size={20} />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleShareLocation}
+          title="Share this drop-off location"
+          style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '50%',
+            background: '#FFFFFF',
+            border: '2px solid #D1D5DB',
+            color: '#1F2A44',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -520,7 +630,7 @@ export default function MapAddressPicker({
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
           }}
         >
-          🎯
+          <ShareIcon size={18} />
         </button>
         <button
           type="button"
@@ -575,7 +685,7 @@ export default function MapAddressPicker({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '16px', color: '#FF6B1A' }}>📍</span>
+              <span style={{ color: '#FF6B1A', display: 'flex' }}><MapPinIcon size={15} /></span>
               <span style={{ fontSize: '14px', fontWeight: 700, color: '#003893' }}>
                 {isReverseGeocoding ? 'Detecting Street Address...' : addressTitle}
               </span>
@@ -583,6 +693,11 @@ export default function MapAddressPicker({
             <div style={{ fontSize: '11px', color: '#1F2A44', marginTop: '2px', maxWidth: '380px' }}>
               {displayAddress}
             </div>
+            {locateState === 'found' && gpsAccuracy !== null && (
+              <div style={{ fontSize: '10px', color: '#16A34A', marginTop: '3px', fontWeight: 600 }}>
+                GPS location shared · accurate to about {gpsAccuracy} m
+              </div>
+            )}
           </div>
           <span
             style={{
@@ -667,7 +782,7 @@ export default function MapAddressPicker({
             boxShadow: '0 2px 6px rgba(255, 107, 26, 0.4)',
           }}
         >
-          <span>✓ Confirm Delivery Location</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckIcon size={15} /> Confirm Delivery Location</span>
           <span style={{ fontSize: '11px', opacity: 0.9 }}>({addressTitle.split(',')[0]})</span>
         </button>
       </div>

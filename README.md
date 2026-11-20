@@ -8,7 +8,7 @@ Valley Express is an on-demand quick-delivery platform built for Kathmandu Valle
 ## Monorepo Structure
 
 ```
-C:\valley express\
+valley-express/
 |-- backend/          # Node.js, Express, MongoDB REST API & Socket.io Server (Port 5000)
 |-- admin-web/        # React 18, Vite Admin Operations Dashboard & Live Order Board (Port 5173)
 |-- mobile-app/       # Flutter Cross-Platform App (Customer and Rider roles)
@@ -19,25 +19,68 @@ C:\valley express\
 
 ---
 
+## Prerequisites
+
+| Tool | Version used | Notes |
+| --- | --- | --- |
+| Node.js | 22 LTS or newer | npm 10+ |
+| MongoDB Server | 8.x | Run as a local daemon on port 27017 |
+| Flutter SDK | 3.50+ (Dart 3.14) | Only for the native mobile app |
+| Android Studio | Latest, with SDK + licences accepted | Only for Android builds |
+
+The Android build needs **Gradle 9.5 / AGP 9.3** (already configured) because the
+JDK bundled with current Android Studio is Java 25. Older Gradle fails with
+*"Gradle version is incompatible with the Java version"*.
+
 ## Quick Start
 
-Run [`start_dev.bat`](file:///C:/valley%20express/start_dev.bat) in `C:\valley express\` or run the services individually:
+Run `start_dev.bat` from the repo root — it locates `mongod.exe`, starts the
+database, the API and the dashboard. It works from whatever folder you cloned
+into. Or run the services individually:
+
+### 0. One-time setup
+```powershell
+# Backend environment file
+copy backend\.env.example backend\.env     # then set JWT_SECRET
+
+# Dependencies
+cd backend    ; npm install
+cd ..\admin-web ; npm install
+```
+
+Minimum `backend\.env`:
+```
+PORT=5000
+NODE_ENV=development
+MONGO_URI=mongodb://localhost:27017/valley_express
+JWT_SECRET=<any long random string>
+JWT_EXPIRES_IN=7d
+```
+SMS and payment-gateway keys are optional; without them OTP falls back to a
+development sandbox that logs the code to the console and returns it as `devOtp`.
 
 ### 1. Database & Backend API
 ```powershell
-# 1. MongoDB Daemon runs on port 27017 with data in:
-"C:\Program Files\MongoDB\Server\8.3\bin\mongod.exe" --dbpath "C:\valley express\backend\data\db" --port 27017
+# 1. MongoDB daemon on port 27017, data under the repo:
+"C:\Program Files\MongoDB\Server\8.3\bin\mongod.exe" --dbpath ".\backend\data\db" --port 27017
 
-# 2. Launch the backend API & Socket.io:
-cd "C:\valley express\backend"
+# 2. Seed categories, products, offers and the admin account (first run only):
+cd backend
+npm run seed
+
+# 3. Launch the backend API & Socket.io:
 npm run dev
 # Server running at http://localhost:5000
 # Health check: http://localhost:5000/health
 ```
 
+> `npm run seed` wipes and recreates all collections. The `backend\data\db`
+> directory checked into the repo is not usable — restore it only from a proper
+> `mongodump`, never by committing a live WiredTiger directory.
+
 ### 2. Admin Web Application
 ```powershell
-cd "C:\valley express\admin-web"
+cd admin-web
 npm run dev
 # Dashboard running at http://localhost:5173
 ```
@@ -50,10 +93,19 @@ npm run dev
 - **Interactive Web Simulator:** Open `http://localhost:5173/mobile-preview` in your browser to test both **Customer** and **Rider** flows connected to MongoDB and Socket.io.
 - **Flutter Native Mobile:**
 ```powershell
-cd "C:\valley express\mobile-app"
+cd mobile-app
 flutter pub get
-flutter run
+flutter run -d chrome          # fastest, no emulator boot
+flutter run                    # pick an emulator or attached device
+flutter build apk --debug      # build\app\outputs\flutter-apk\app-debug.apk
 ```
+`run_mobile_web.bat` and `run_mobile_android.bat` in the repo root wrap the
+last two.
+
+The API host is fixed in `lib/core/constants.dart`: `localhost:5000` on web,
+`10.0.2.2:5000` on Android (the emulator's alias for the host machine). A
+**physical phone** cannot reach either — point `baseUrl`/`socketUrl` at your
+machine's LAN IP and allow inbound 5000 through Windows Firewall.
 
 ---
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/order_provider.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_loader.dart';
 import '../../models/order.dart';
 import 'order_tracking_screen.dart';
 import 'chat_screen.dart';
@@ -83,7 +84,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         ),
       ),
       body: orderProv.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          ? const ValleyLoaderScreen(label: "Fetching your orders...")
           : TabBarView(
               controller: _tabController,
               children: [

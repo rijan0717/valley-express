@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { MapIcon } from '../components/Icons';
 import Navbar from '../components/Navbar';
 import api from '../api/client';
 import { useSocket } from '../context/SocketContext';
@@ -1020,7 +1021,7 @@ const OrdersBoard = ({ onReplaySplash }) => {
                           rel="noreferrer"
                           style={{ fontSize: '11px', color: '#003893', fontWeight: 700, textDecoration: 'underline' }}
                         >
-                          🗺️ View on OpenStreetMap
+                          <MapIcon size={13} /> View on OpenStreetMap
                         </a>
                       </div>
                     )}

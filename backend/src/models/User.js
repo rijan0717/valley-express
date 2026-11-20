@@ -13,10 +13,14 @@ const addressSchema = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema(
   {
+    // Optional since customers now register with an email. Riders and
+    // OTP sign-ins still identify by phone, so it stays unique where present
+    // (sparse: many documents may have no phone at all).
     phone: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
       index: true,
     },
@@ -25,10 +29,13 @@ const userSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    // Primary identifier for customer accounts
     email: {
       type: String,
       trim: true,
       lowercase: true,
+      unique: true,
+      sparse: true,
     },
     password: {
       type: String,

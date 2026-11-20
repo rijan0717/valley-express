@@ -16,13 +16,27 @@ dependencies:
   intl: ^0.19.0
   cached_network_image: ^3.4.1
   google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  geolocator: ^13.0.2
+  flutter_svg: ^2.0.10+1
+  custom_refresh_indicator: ^4.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+
+# Android/iOS launcher icon generation from the brand mark
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#FF6B1A"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
+  min_sdk_android: 21

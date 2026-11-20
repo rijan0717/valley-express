@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/order_provider.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_loader.dart';
 import '../../core/socket_service.dart';
 import 'chat_screen.dart';
 
@@ -54,7 +55,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         ),
       ),
       body: orderProv.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          ? const ValleyLoaderScreen(label: "Loading live tracking...")
           : order == null
               ? Center(
                   child: Padding(

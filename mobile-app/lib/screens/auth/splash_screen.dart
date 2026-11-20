@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme.dart';
-import '../../widgets/valley_logo.dart';
-import 'phone_login_screen.dart';
+import '../../widgets/auth_animations.dart';
+import 'welcome_screen.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
 
@@ -24,7 +24,8 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuth() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.init();
-    await Future.delayed(const Duration(seconds: 2));
+    // Long enough for the logo to finish assembling before we move on
+    await Future.delayed(const Duration(milliseconds: 2400));
 
     if (!mounted) return;
 
@@ -40,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     } else {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
       );
     }
   }
@@ -49,44 +50,19 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return const Scaffold(
       backgroundColor: AppTheme.background,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ValleyLoaderWidget(size: 80, text: ''),
-            SizedBox(height: 20),
-            Text(
-              'Valley',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                color: AppTheme.brandBlue,
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1,
-              ),
-            ),
-            Text(
-              'EXPRESS',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                color: AppTheme.accent,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 8,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Fast to order. Fast to your door.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                color: AppTheme.textMain,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
+      body: Stack(
+        alignment: Alignment.center,
+        children: [
+          AmbientHalo(size: 320),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedBrandMark(scale: 1.1),
+              SizedBox(height: 36),
+              DeliveryRunAnimation(height: 110),
+            ],
+          ),
+        ],
       ),
     );
   }

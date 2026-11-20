@@ -12,6 +12,7 @@ const Dashboard = ({ onReplaySplash }) => {
   const [riders, setRiders] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState('today');
   const { latestOrder } = useSocket();
 
   const fetchData = async () => {
@@ -48,12 +49,48 @@ const Dashboard = ({ onReplaySplash }) => {
     }
   }, [latestOrder]);
 
-  const activeOrders = orders.filter((o) => !['delivered', 'cancelled', 'rejected'].includes(o.status));
-  const preparingOrders = orders.filter((o) => ['accepted', 'preparing'].includes(o.status));
-  const onTheWayOrders = orders.filter((o) => ['rider_assigned', 'picked_up', 'on_the_way'].includes(o.status));
+  // Reporting windows. 'today' starts at local midnight; the others look back
+  // a rolling 7 or 30 days from now.
+  const RANGES = [
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: '1 Week' },
+    { key: 'month', label: '1 Month' },
+    { key: 'all', label: 'All Time' },
+  ];
+
+  const rangeStart = (key) => {
+    const now = new Date();
+    switch (key) {
+      case 'today': {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        return start;
+      }
+      case 'week':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case 'month':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      default:
+        return null;
+    }
+  };
+
+  const start = rangeStart(range);
+  const rangeLabel = RANGES.find((r) => r.key === range)?.label || 'Today';
+  const filteredOrders = start
+    ? orders.filter((o) => {
+        const placed = new Date(o.createdAt || o.placedAt || 0);
+        return !Number.isNaN(placed.getTime()) && placed >= start;
+      })
+    : orders;
+
+  const activeOrders = filteredOrders.filter((o) => !['delivered', 'cancelled', 'rejected'].includes(o.status));
+  const preparingOrders = filteredOrders.filter((o) => ['accepted', 'preparing'].includes(o.status));
+  const onTheWayOrders = filteredOrders.filter((o) => ['rider_assigned', 'picked_up', 'on_the_way'].includes(o.status));
+  const deliveredOrders = filteredOrders.filter((o) => o.status === 'delivered');
   const onlineRiders = riders.filter((r) => r.isOnline);
 
-  const totalRevenue = orders
+  const totalRevenue = filteredOrders
     .filter((o) => o.status === 'delivered' || o.paymentStatus === 'paid')
     .reduce((sum, o) => sum + (o.total || 0), 0);
 
@@ -83,6 +120,56 @@ const Dashboard = ({ onReplaySplash }) => {
           <ValleyLoader text="Fetching live operations data from MongoDB..." />
         ) : (
           <>
+            {/* Reporting period filter */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '13px', color: '#003893' }}>
+                  Showing: {rangeLabel}
+                </div>
+                <div style={{ fontSize: '11px', color: '#1F2A44' }}>
+                  {filteredOrders.length} order{filteredOrders.length === 1 ? '' : 's'}
+                  {' · '}
+                  {deliveredOrders.length} delivered
+                </div>
+              </div>
+
+              <div
+                role="group"
+                aria-label="Reporting period"
+                style={{ display: 'flex', border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden' }}
+              >
+                {RANGES.map((r, i) => (
+                  <button
+                    key={r.key}
+                    type="button"
+                    onClick={() => setRange(r.key)}
+                    aria-pressed={range === r.key}
+                    style={{
+                      border: 'none',
+                      borderRight: i === RANGES.length - 1 ? 'none' : '1px solid #D1D5DB',
+                      background: range === r.key ? '#003893' : '#FFFFFF',
+                      color: range === r.key ? '#FFFFFF' : '#1F2A44',
+                      fontWeight: range === r.key ? 700 : 500,
+                      fontSize: '12px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* KPI Stat Cards (Strict 5-color palette, no gradients) */}
             <div className="stat-grid">
               <div className="stat-card">
@@ -191,14 +278,14 @@ const Dashboard = ({ onReplaySplash }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.length === 0 ? (
+                    {filteredOrders.length === 0 ? (
                       <tr>
                         <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: '#1F2A44' }}>
                           No orders in database. Place a live test order from Mobile Preview.
                         </td>
                       </tr>
                     ) : (
-                      orders.slice(0, 8).map((order) => {
+                      filteredOrders.slice(0, 8).map((order) => {
                         const addr = order.deliveryAddress?.addressText || order.address?.addressText || 'Kathmandu';
                         const landmark = order.deliveryAddress?.landmark || order.address?.landmark;
                         return (

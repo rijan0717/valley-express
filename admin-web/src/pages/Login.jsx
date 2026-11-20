@@ -14,6 +14,21 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate before spending a round trip on the API
+    if (!email.trim()) {
+      setError('Enter the admin email address.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter a valid email address, for example admin@gmail.com.');
+      return;
+    }
+    if (!password) {
+      setError('Enter your password.');
+      return;
+    }
+
     const res = await login(email, password);
     if (res.success) {
       navigate('/');

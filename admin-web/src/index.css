@@ -401,6 +401,62 @@ tbody tr:hover td {
   color: var(--text);
 }
 
+/* Marker that flies from an add button to the Cart tab, so the count change
+   is visibly tied to the product that caused it. */
+.cart-flyer {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 30;
+  animation: fly-to-cart 620ms cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+
+@keyframes fly-to-cart {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--fly-x), var(--fly-y)) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-flyer {
+    animation-duration: 1ms;
+  }
+}
+
+/* Unread message counter. Solid accent pill so it reads at a glance against
+   the outlined status badges. */
+.unread-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Pushes the counter to the far edge of a sidebar row */
+.nav-item .unread-count {
+  margin-left: auto;
+}
+
 /* ==========================================================================
    Kanban Columns (Orders Board)
    ========================================================================== */
@@ -520,7 +576,11 @@ tbody tr:hover td {
   grid-template-columns: 320px 1fr;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  min-height: 600px;
+  /* Bounded to the viewport (navbar 61px + page padding 48px) so that long
+     conversations scroll inside the message pane instead of growing the page */
+  height: calc(100vh - 110px);
+  min-height: 420px;
+  overflow: hidden;
   background: var(--bg);
 }
 
@@ -534,6 +594,8 @@ tbody tr:hover td {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  /* Lets the thread list shrink below its content height and scroll */
+  min-height: 0;
 }
 
 .threads-header {
@@ -565,6 +627,8 @@ tbody tr:hover td {
 .chat-pane {
   display: flex;
   flex-direction: column;
+  /* Same: without this the message list expands rather than scrolling */
+  min-height: 0;
 }
 
 .chat-header {
@@ -574,8 +638,10 @@ tbody tr:hover td {
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   padding: 20px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 12px;

@@ -6,6 +6,7 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ModalProvider } from './context/ModalContext';
+import { ChatUnreadProvider } from './context/ChatUnreadContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <SocketProvider>
           <ModalProvider>
-            <App />
+            <ChatUnreadProvider>
+              <App />
+            </ChatUnreadProvider>
           </ModalProvider>
         </SocketProvider>
       </AuthProvider>

@@ -5,6 +5,7 @@ import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_loader.dart';
 import '../../models/product.dart';
 import '../../models/order.dart';
 import 'cart_screen.dart';
@@ -14,6 +15,9 @@ import 'profile_screen.dart';
 import 'product_detail_screen.dart';
 import 'map_address_picker_screen.dart';
 import '../../widgets/valley_product_image.dart';
+import '../../widgets/unread_badge.dart';
+import '../../widgets/fly_to_cart.dart';
+import '../../providers/chat_unread_provider.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -34,6 +38,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   double _deliveryLon = 85.3300;
   bool _loading = true;
   int _currentNavIndex = 0;
+  // Landing point for the add-to-cart flight animation
+  final GlobalKey _cartTargetKey = GlobalKey();
 
   @override
   void initState() {
@@ -41,6 +47,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<OrderProvider>(context, listen: false).fetchMyOrders();
+      Provider.of<ChatUnreadProvider>(context, listen: false).start();
     });
   }
 
@@ -111,9 +118,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       backgroundColor: AppTheme.scaffoldBg,
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
-            : RefreshIndicator(
-                color: AppTheme.accent,
+            ? const ValleyLoaderScreen(label: "Loading tonight's menu...")
+            : ValleyRefresh(
                 onRefresh: _loadData,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -388,14 +394,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                       color: AppTheme.background,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
-                                      '⚡ KATHMANDU 30-MIN EXPRESS',
-                                      style: TextStyle(
-                                        color: AppTheme.accent,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 9,
-                                        letterSpacing: 0.5,
-                                      ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.bolt_rounded,
+                                            size: 11, color: AppTheme.accent),
+                                        SizedBox(width: 3),
+                                        Text(
+                                          'KATHMANDU 30-MIN EXPRESS',
+                                          style: TextStyle(
+                                            color: AppTheme.accent,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 9,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -503,9 +517,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         backgroundColor: AppTheme.accent,
         elevation: 4,
         icon: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 18),
-        label: const Text(
-          'Chat with Admin',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Chat with Admin',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+            Consumer<ChatUnreadProvider>(
+              builder: (_, unread, __) => unread.total == 0
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: UnreadBadge(
+                        count: unread.total,
+                        background: Colors.white,
+                        foreground: AppTheme.accent,
+                      ),
+                    ),
+            ),
+          ],
         ),
         onPressed: () {
           final orderProv = Provider.of<OrderProvider>(context, listen: false);
@@ -622,6 +653,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   index: 2,
                   icon: Icons.shopping_bag_outlined,
                   label: 'Cart',
+                  iconKey: _cartTargetKey,
                   badgeCount: cart.itemCount,
                   isSelected: _currentNavIndex == 2,
                   onTap: () {
@@ -792,16 +824,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     color: AppTheme.textMain,
                   ),
                 ),
-                GestureDetector(
+                Builder(
+                  builder: (buttonContext) => GestureDetector(
                   onTap: () {
-                    cart.addItem(p);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${p.name} added to basket'),
-                        duration: const Duration(seconds: 1),
-                        backgroundColor: AppTheme.darkNavy,
-                      ),
+                    // Fly before adding, so the marker starts from the button
+                    // while it is still on screen
+                    FlyToCart.runFromContext(
+                      sourceContext: buttonContext,
+                      targetKey: _cartTargetKey,
                     );
+                    cart.addItem(p);
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text('${p.name} added to basket'),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: AppTheme.darkNavy,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
                   },
                   child: Container(
                     width: 32,
@@ -815,6 +857,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       color: AppTheme.background,
                       size: 20,
                     ),
+                  ),
                   ),
                 ),
               ],
@@ -832,6 +875,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     required bool isSelected,
     required VoidCallback onTap,
     int badgeCount = 0,
+    Key? iconKey,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -840,6 +884,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Stack(
+            key: iconKey,
             clipBehavior: Clip.none,
             children: [
               Icon(

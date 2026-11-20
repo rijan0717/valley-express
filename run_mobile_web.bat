@@ -1,11 +1,14 @@
 @echo off
+setlocal
 title Valley Express - Mobile Web Runner
+set "ROOT=%~dp0"
 echo ========================================================
 echo   Starting Valley Express Mobile Application (Flutter)
 echo ========================================================
 echo.
-echo Launching local server on http://localhost:8080...
+echo Target: Chrome. Backend must be running on http://localhost:5000
 echo.
-start http://localhost:8080
-node "%~dp0tools\serve_mobile.js"
+cd /d "%ROOT%mobile-app" || exit /b 1
+call flutter pub get
+call flutter run -d chrome
 pause
