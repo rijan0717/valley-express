@@ -4,6 +4,8 @@ import 'core/theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/order_provider.dart';
+import 'providers/chat_unread_provider.dart';
+import 'providers/preferences_provider.dart';
 import 'screens/auth/splash_screen.dart';
 
 void main() {
@@ -21,6 +23,8 @@ class ValleyExpressApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => ChatUnreadProvider()),
+        ChangeNotifierProvider(create: (_) => PreferencesProvider()..load()),
       ],
       child: MaterialApp(
         title: 'Valley Express',

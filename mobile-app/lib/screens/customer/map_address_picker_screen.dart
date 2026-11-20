@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../providers/preferences_provider.dart';
 
 class SelectedLocation {
   final String addressText;
@@ -59,6 +63,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   bool _isSearching = false;
   Timer? _debounceTimer;
 
+  // 'idle' | 'locating' | 'found' | 'error' — drives the my-location button
+  String _locateState = 'idle';
+  int? _gpsAccuracy;
+  // The term behind the current results, so a zero-result search can explain
+  // itself instead of rendering an empty dropdown
+  String _searchedTerm = '';
+
   // Popular Kathmandu Valley Quick Zones
   final List<Map<String, dynamic>> _popularZones = [
     {'name': 'Baluwatar', 'lat': 27.7280, 'lon': 85.3300},
@@ -92,6 +103,103 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     _phoneController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  /// Centres the pin on the device's GPS position, the way the "my location"
+  /// button works in Google Maps. Every failure path says why rather than
+  /// quietly leaving the pin where it was.
+  Future<void> _useCurrentLocation() async {
+    // Respect the customer's own preference from the profile screen
+    final prefs = context.read<PreferencesProvider>();
+    if (!prefs.locationSharing) {
+      _showLocationMessage(
+        'Location sharing is turned off in your profile. Turn it on, or search for your area below.',
+      );
+      return;
+    }
+
+    setState(() {
+      _locateState = 'locating';
+      _searchResults = [];
+    });
+
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        setState(() => _locateState = 'error');
+        _showLocationMessage(
+          'Location services are off on this device. Turn them on, or search for your area below.',
+        );
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied) {
+        setState(() => _locateState = 'error');
+        _showLocationMessage(
+          'Location permission was declined. Search for your area or drag the pin instead.',
+        );
+        return;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _locateState = 'error');
+        _showLocationMessage(
+          'Location is blocked for Valley Express. Allow it in your phone settings to use this.',
+        );
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _locateState = 'found';
+        _gpsAccuracy = position.accuracy.round();
+        _currentLat = position.latitude;
+        _currentLon = position.longitude;
+        _zoom = 17;
+      });
+      _reverseGeocode(position.latitude, position.longitude);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _locateState = 'error');
+      _showLocationMessage(
+        'Could not get a GPS fix. Try again outdoors, or search for your area below.',
+      );
+    }
+  }
+
+  void _showLocationMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppTheme.darkNavy,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+  }
+
+  /// Copies the chosen drop-off so it can be sent to a rider or a friend.
+  Future<void> _shareLocation() async {
+    final landmark = _landmarkController.text.trim();
+    final text = '$_addressTitle${landmark.isNotEmpty ? ' ($landmark)' : ''}\n'
+        '${_currentLat.toStringAsFixed(5)}, ${_currentLon.toStringAsFixed(5)}\n'
+        'https://www.openstreetmap.org/?mlat=$_currentLat&mlon=$_currentLon'
+        '#map=18/$_currentLat/$_currentLon';
+
+    await Clipboard.setData(ClipboardData(text: text));
+    _showLocationMessage('Drop-off location copied to the clipboard.');
   }
 
   // Slippy tile mathematical converters
@@ -137,9 +245,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       setState(() {
         _searchResults = [];
         _isSearching = false;
+        _searchedTerm = '';
       });
       return;
     }
+    // Remember what was searched so an empty result can say so, rather than
+    // showing nothing and looking broken
+    _searchedTerm = query.trim();
 
     _debounceTimer = Timer(const Duration(milliseconds: 350), () async {
       setState(() => _isSearching = true);
@@ -349,9 +461,22 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                         child: TextField(
                           controller: _searchController,
                           onChanged: _onSearchChanged,
+                          textInputAction: TextInputAction.search,
                           decoration: const InputDecoration(
                             hintText: 'Search Kathmandu chowk, street, area...',
+                            // The app theme paints an accent focus outline on
+                            // every field. This one already sits inside a
+                            // bordered search bar, so clear all four states to
+                            // avoid a double border while typing.
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            filled: false,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12),
                             hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
@@ -378,11 +503,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                   ),
                 ),
 
-                // Search Results Dropdown
-                if (_searchResults.isNotEmpty)
+                // Nothing matched: say so rather than showing a blank panel
+                if (_searchResults.isEmpty &&
+                    !_isSearching &&
+                    _searchedTerm.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.only(top: 6),
-                    constraints: const BoxConstraints(maxHeight: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
@@ -391,7 +518,100 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                         BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
                       ],
                     ),
-                    child: ListView.separated(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.search_off_rounded,
+                                size: 16, color: AppTheme.textMuted),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                'No place found for "$_searchedTerm"',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textMain,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Shops and businesses are often missing from the map. '
+                          'Try a nearby chowk or street, use your current location, '
+                          'or drop the pin and add a landmark below.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textMuted,
+                            height: 1.45,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: _useCurrentLocation,
+                          child: const Row(
+                            children: [
+                              Icon(Icons.my_location,
+                                  size: 15, color: AppTheme.brandBlue),
+                              SizedBox(width: 6),
+                              Text(
+                                'Use my current location',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.brandBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Search Results Dropdown
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.border),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Google-style first row: jump to the device position
+                        ListTile(
+                          dense: true,
+                          onTap: _useCurrentLocation,
+                          leading: const Icon(Icons.my_location,
+                              size: 18, color: AppTheme.brandBlue),
+                          title: Text(
+                            _locateState == 'locating'
+                                ? 'Locating you…'
+                                : 'Use my current location',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.brandBlue,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Share GPS so the rider finds you exactly',
+                            style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+                          ),
+                        ),
+                        const Divider(height: 1, color: AppTheme.border),
+                        Flexible(
+                          child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: _searchResults.length,
                       separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.border),
@@ -413,6 +633,9 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                           onTap: () => _selectSearchResult(item),
                         );
                       },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -427,8 +650,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                     itemBuilder: (context, idx) {
                       final zone = _popularZones[idx];
                       return ActionChip(
+                        avatar: const Icon(
+                          Icons.place_outlined,
+                          size: 14,
+                          color: AppTheme.brandBlue,
+                        ),
                         label: Text(
-                          '📍 ${zone['name']}',
+                          zone['name'],
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.brandBlue),
                         ),
                         backgroundColor: Colors.white,
@@ -478,16 +706,36 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                 FloatingActionButton.small(
                   heroTag: 'myLoc',
                   backgroundColor: Colors.white,
-                  foregroundColor: AppTheme.accent,
-                  tooltip: 'Reset to Baluwatar Center',
-                  onPressed: () {
-                    setState(() {
-                      _currentLat = 27.7280;
-                      _currentLon = 85.3300;
-                    });
-                    _reverseGeocode(_currentLat, _currentLon);
-                  },
-                  child: const Icon(Icons.my_location),
+                  foregroundColor: _locateState == 'error'
+                      ? AppTheme.danger
+                      : AppTheme.brandBlue,
+                  tooltip: _locateState == 'locating'
+                      ? 'Locating you…'
+                      : _locateState == 'error'
+                          ? 'Location blocked — tap to retry'
+                          : 'Use my current location',
+                  onPressed:
+                      _locateState == 'locating' ? null : _useCurrentLocation,
+                  child: _locateState == 'locating'
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation(AppTheme.brandBlue),
+                          ),
+                        )
+                      : const Icon(Icons.my_location),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: 'shareLoc',
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.textMain,
+                  tooltip: 'Share this drop-off location',
+                  onPressed: _shareLocation,
+                  child: const Icon(Icons.share_outlined, size: 18),
                 ),
               ],
             ),
@@ -534,6 +782,18 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (_locateState == 'found' && _gpsAccuracy != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 3),
+                                  child: Text(
+                                    'GPS shared · accurate to about $_gpsAccuracy m',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.success,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),

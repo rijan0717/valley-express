@@ -4,25 +4,38 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const { getIO } = require('../sockets');
 
+// A thread id is an order id, a customer id (direct inquiry), or the literal
+// 'general'. Resolves to the message filter for that thread.
+const buildThreadQuery = (threadId, user) => {
+  if (mongoose.Types.ObjectId.isValid(threadId)) {
+    // Could be orderId or customerId
+    return {
+      $or: [
+        { order: threadId },
+        { customer: threadId, order: null },
+      ],
+    };
+  }
+  if (threadId === 'general') {
+    return { customer: user._id, order: null };
+  }
+  return { order: threadId };
+};
+
+// Messages are unread for whoever did not send them. Admin reads what the
+// customer and rider sent; the customer reads what the admin sent.
+const buildUnreadQuery = (user) => {
+  if (user.role === 'admin') {
+    return { isRead: false, senderRole: { $ne: 'admin' } };
+  }
+  return { isRead: false, senderRole: 'admin', customer: user._id };
+};
+
 // GET /api/chat/:threadId
 const getMessagesByOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-
-    let query = {};
-    if (mongoose.Types.ObjectId.isValid(orderId)) {
-      // Could be orderId or customerId
-      query = {
-        $or: [
-          { order: orderId },
-          { customer: orderId, order: null },
-        ],
-      };
-    } else if (orderId === 'general') {
-      query = { customer: req.user._id, order: null };
-    } else {
-      query = { order: orderId };
-    }
+    const query = buildThreadQuery(orderId, req.user);
 
     const messages = await Message.find(query)
       .populate('sender', 'name role')
@@ -129,8 +142,69 @@ const getAdminChatThreads = async (req, res) => {
   }
 };
 
+// GET /api/chat/unread
+// Total unread for the caller, plus a per-thread breakdown so the admin
+// conversation list can badge each thread individually.
+const getUnreadCount = async (req, res) => {
+  try {
+    const match = buildUnreadQuery(req.user);
+    if (match.customer) {
+      match.customer = new mongoose.Types.ObjectId(String(match.customer));
+    }
+
+    const rows = await Message.aggregate([
+      { $match: match },
+      { $group: { _id: { $ifNull: ['$order', '$customer'] }, count: { $sum: 1 } } },
+    ]);
+
+    const threads = {};
+    let total = 0;
+    for (const row of rows) {
+      if (row._id) threads[row._id.toString()] = row.count;
+      total += row.count;
+    }
+
+    res.json({ success: true, total, threads });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/chat/:orderId/read
+// Marks everything the other party sent in this thread as read.
+const markThreadRead = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const senderFilter =
+      req.user.role === 'admin'
+        ? { senderRole: { $ne: 'admin' } }
+        : { senderRole: 'admin' };
+
+    const result = await Message.updateMany(
+      { $and: [buildThreadQuery(orderId, req.user), senderFilter, { isRead: false }] },
+      { $set: { isRead: true, readAt: new Date() } }
+    );
+
+    // Let other open tabs and the sender's client refresh their badges
+    try {
+      getIO().to('admin-room').emit('chat:read', { threadId: orderId });
+      if (req.user?._id) {
+        getIO().to(`user:${req.user._id}`).emit('chat:read', { threadId: orderId });
+      }
+    } catch (e) {
+      console.error('[Socket Chat Read Error]', e.message);
+    }
+
+    res.json({ success: true, markedRead: result.modifiedCount || 0 });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getMessagesByOrder,
   sendMessage,
   getAdminChatThreads,
+  getUnreadCount,
+  markThreadRead,
 };

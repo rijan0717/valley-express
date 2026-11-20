@@ -3,16 +3,18 @@ import Navbar from '../components/Navbar';
 import api from '../api/client';
 import { useSocket } from '../context/SocketContext';
 import { useModal } from '../context/ModalContext';
+import { useChatUnread } from '../context/ChatUnreadContext';
 import ValleyLoader from '../components/ValleyLoader';
 
 const Chat = ({ onReplaySplash }) => {
-  const { showAlert } = useModal();
+  const { showAlert, showToast } = useModal();
   const [threads, setThreads] = useState([]);
   const [selectedThread, setSelectedThread] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const { socket } = useSocket();
+  const { threads: unreadByThread, total: totalUnread, markThreadRead } = useChatUnread();
   const messagesEndRef = useRef(null);
 
   const fetchThreads = async () => {
@@ -49,11 +51,12 @@ const Chat = ({ onReplaySplash }) => {
   useEffect(() => {
     if (selectedThread) {
       fetchMessages(selectedThread._id);
+      markThreadRead(selectedThread._id);
       if (socket) {
         socket.emit('join:order', selectedThread._id);
       }
     }
-  }, [selectedThread, socket]);
+  }, [selectedThread, socket, markThreadRead]);
 
   useEffect(() => {
     if (socket) {
@@ -67,6 +70,10 @@ const Chat = ({ onReplaySplash }) => {
             if (prev.some((m) => m._id === newMsg._id)) return prev;
             return [...prev, newMsg];
           });
+          // The thread is on screen, so it counts as read immediately
+          if (newMsg.senderRole !== 'admin') {
+            markThreadRead(threadId);
+          }
         }
         fetchThreads();
       };
@@ -76,7 +83,7 @@ const Chat = ({ onReplaySplash }) => {
         socket.off('chat:message', handleChatMessage);
       };
     }
-  }, [socket, selectedThread]);
+  }, [socket, selectedThread, markThreadRead]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -84,7 +91,14 @@ const Chat = ({ onReplaySplash }) => {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !selectedThread) return;
+    if (!selectedThread) {
+      showToast('Select a conversation before replying.', 'warning');
+      return;
+    }
+    if (!inputMessage.trim()) {
+      showToast('Type a reply before sending.', 'warning');
+      return;
+    }
 
     const text = inputMessage.trim();
     setInputMessage('');
@@ -112,8 +126,13 @@ const Chat = ({ onReplaySplash }) => {
           <div className="chat-container">
             {/* Threads List */}
             <div className="threads-sidebar">
-              <div className="threads-header">
-                Active Order Conversations
+              <div className="threads-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Active Order Conversations</span>
+                {totalUnread > 0 && (
+                  <span className="unread-count" title={`${totalUnread} unread in total`}>
+                    {totalUnread > 99 ? '99+' : totalUnread}
+                  </span>
+                )}
               </div>
               <ul className="thread-list">
                 {threads.length === 0 ? (
@@ -127,10 +146,20 @@ const Chat = ({ onReplaySplash }) => {
                       onClick={() => setSelectedThread(thread)}
                       className={`thread-item ${selectedThread?._id === thread._id ? 'active' : ''}`}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '6px' }}>
                         <span style={{ fontWeight: 700, color: '#003893' }}>{thread.orderNo}</span>
-                        <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
-                          {thread.status}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {unreadByThread[thread._id] > 0 && (
+                            <span
+                              className="unread-count"
+                              title={`${unreadByThread[thread._id]} unread message${unreadByThread[thread._id] === 1 ? '' : 's'}`}
+                            >
+                              {unreadByThread[thread._id] > 99 ? '99+' : unreadByThread[thread._id]}
+                            </span>
+                          )}
+                          <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                            {thread.status}
+                          </span>
                         </span>
                       </div>
                       <div style={{ fontWeight: 500, fontSize: '12px' }}>

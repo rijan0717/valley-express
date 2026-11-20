@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_loader.dart';
 import '../../core/socket_service.dart';
 
 class RiderHomeScreen extends StatefulWidget {
@@ -170,9 +171,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.brandBlue))
-          : RefreshIndicator(
-              color: AppTheme.brandBlue,
+          ? const ValleyLoaderScreen(label: "Loading your deliveries...")
+          : ValleyRefresh(
               onRefresh: _fetchOrders,
               child: ListView(
                 padding: const EdgeInsets.all(16),

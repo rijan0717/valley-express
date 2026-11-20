@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { CheckIcon, AlertIcon, InfoIcon, CloseIcon } from '../components/Icons';
 
 const ModalContext = createContext();
 
@@ -189,7 +190,7 @@ export const ModalProvider = ({ children }) => {
                   fontWeight: 'bold',
                 }}
               >
-                {modalState.type === 'danger' ? '!' : modalState.type === 'success' ? '✔' : 'ℹ'}
+                {modalState.type === 'danger' ? <AlertIcon size={18} /> : modalState.type === 'success' ? <CheckIcon size={18} /> : <InfoIcon size={18} />}
               </div>
               <h3
                 style={{
@@ -310,7 +311,7 @@ export const ModalProvider = ({ children }) => {
                 border: '1px solid rgba(255,255,255,0.2)',
               }}
             >
-              <span>{t.type === 'error' ? '⚠' : t.type === 'success' ? '✔' : 'ℹ'}</span>
+              <span style={{ display: 'flex' }}>{t.type === 'error' ? <AlertIcon size={15} /> : t.type === 'success' ? <CheckIcon size={15} /> : <InfoIcon size={15} />}</span>
               <span>{t.message}</span>
             </div>
           ))}

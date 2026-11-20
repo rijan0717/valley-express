@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import api from '../api/client';
 import { useSocket } from '../context/SocketContext';
@@ -6,11 +6,31 @@ import { useModal } from '../context/ModalContext';
 import { LogoMark, LogoFull } from '../components/Logo';
 import ValleyLoader from '../components/ValleyLoader';
 import MapAddressPicker from '../components/MapAddressPicker';
+import ProductDetailSheet from '../components/ProductDetailSheet';
+import {
+  BagIcon,
+  SearchIcon,
+  CloseIcon,
+  BoltIcon,
+  TagIcon,
+  PackageIcon,
+  MapPinIcon,
+  MapIcon,
+  CashIcon,
+  ChatIcon,
+  NavigationIcon,
+  PhoneIcon,
+} from '../components/Icons';
 
 const MobilePreview = ({ onReplaySplash }) => {
-  const { showAlert } = useModal();
+  const { showAlert, showToast } = useModal();
   const [role, setRole] = useState('customer'); // 'customer' or 'rider'
-  const [activeTab, setActiveTab] = useState('home'); // 'splash', 'home', 'cart', 'tracking', 'chat', 'rider_jobs'
+  const [activeTab, setActiveTab] = useState('home'); // 'home', 'cart', 'maps', 'tracking', 'chat', 'rider_jobs'
+  // Loading states. The branded loaders are shown for these rather than being
+  // a separate gallery tab.
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [chatLoading, setChatLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -26,7 +46,18 @@ const MobilePreview = ({ onReplaySplash }) => {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatError, setChatError] = useState('');
+  // How many admin replies the simulated customer has already looked at. The
+  // simulator shares the admin's API session, so it cannot use the server-side
+  // unread count — that one belongs to the admin.
+  const [chatSeenCount, setChatSeenCount] = useState(0);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  // Product tapped in the catalogue; shown as a sheet over the phone screen
+  const [detailProduct, setDetailProduct] = useState(null);
+  // Add-to-cart flight markers, and the matching pulse on the Cart tab
+  const [flyers, setFlyers] = useState([]);
+  const [cartPulse, setCartPulse] = useState(false);
+  const phoneRef = useRef(null);
+  const cartTabRef = useRef(null);
   const [deliveryLocation, setDeliveryLocation] = useState({
     addressText: 'Baluwatar, Kathmandu',
     landmark: 'Near Russian Embassy, House #42',
@@ -60,7 +91,7 @@ const MobilePreview = ({ onReplaySplash }) => {
 
       api.get('/products').then((res) => {
         if (res.data.success) setProducts(res.data.products);
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => setCatalogLoading(false));
 
       api.get('/categories').then((res) => {
         if (res.data.success) setCategories(res.data.categories);
@@ -100,14 +131,56 @@ const MobilePreview = ({ onReplaySplash }) => {
   // Load chat messages when tracking or chat active
   useEffect(() => {
     const threadId = activeOrder?._id || 'general';
+    setChatLoading(true);
     api.get(`/chat/${threadId}`)
       .then((res) => {
         if (res.data.success) setChatMessages(res.data.messages || []);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setChatLoading(false));
   }, [activeOrder, activeTab]);
 
-  const addToCart = (product) => {
+  // Unread badge for the customer's Chat tab: admin replies not yet opened
+  const adminReplyCount = chatMessages.filter((m) => m.senderRole === 'admin').length;
+  const unreadChatCount = activeTab === 'chat' ? 0 : Math.max(0, adminReplyCount - chatSeenCount);
+
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      setChatSeenCount(adminReplyCount);
+    }
+  }, [activeTab, adminReplyCount]);
+
+  // Flies a small marker from the tapped button to the Cart tab, so the count
+  // change is visibly connected to the thing that was added.
+  const flyToCart = (sourceEl) => {
+    const phone = phoneRef.current;
+    const target = cartTabRef.current;
+    if (!phone || !target || !sourceEl) return;
+
+    const frame = phone.getBoundingClientRect();
+    const from = sourceEl.getBoundingClientRect();
+    const to = target.getBoundingClientRect();
+
+    const id = Date.now() + Math.random();
+    setFlyers((prev) => [
+      ...prev,
+      {
+        id,
+        x0: from.left - frame.left + from.width / 2,
+        y0: from.top - frame.top + from.height / 2,
+        x1: to.left - frame.left + to.width / 2,
+        y1: to.top - frame.top + to.height / 2,
+      },
+    ]);
+    setCartPulse(true);
+    window.setTimeout(() => {
+      setFlyers((prev) => prev.filter((f) => f.id !== id));
+      setCartPulse(false);
+    }, 650);
+  };
+
+  const addToCart = (product, sourceEl) => {
+    if (sourceEl) flyToCart(sourceEl);
     setCart((prev) => {
       const existing = prev.find((item) => item.product._id === product._id);
       if (existing) {
@@ -156,12 +229,16 @@ const MobilePreview = ({ onReplaySplash }) => {
   };
 
   const handlePlaceOrder = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0) {
+      showToast('Your basket is empty. Add items before checking out.', 'warning');
+      return;
+    }
     if (hasAlcohol && !ageConfirmed) {
       showAlert('Alcohol Regulatory Notice: Please confirm you are 18+ years of age before purchasing alcohol items.', 'Age Verification Required', 'warning');
       return;
     }
 
+    setPlacingOrder(true);
     try {
       const payload = {
         items: cart.map((i) => ({ product: i.product._id, quantity: i.quantity })),
@@ -187,9 +264,12 @@ const MobilePreview = ({ onReplaySplash }) => {
         setAppliedDiscount(0);
         setCouponMessage('');
         setActiveTab('tracking');
+        showToast(`Order ${res.data.order.orderNo} placed. Tracking is now live.`, 'success');
       }
     } catch (err) {
       showAlert(err.response?.data?.message || err.message, 'Order Placement Failed', 'danger');
+    } finally {
+      setPlacingOrder(false);
     }
   };
 
@@ -211,7 +291,10 @@ const MobilePreview = ({ onReplaySplash }) => {
 
   const handleSendCustomerMessage = async (e) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim()) {
+      setChatError('Type a message before sending.');
+      return;
+    }
     const text = chatInput.trim();
     setChatInput('');
     setChatError('');
@@ -307,6 +390,7 @@ const MobilePreview = ({ onReplaySplash }) => {
         <div style={{ display: 'flex', justifyContent: 'center', width: '100%', paddingBottom: '36px' }}>
           {/* Industrial Utility Smartphone Shell */}
           <div
+            ref={phoneRef}
             style={{
               width: '380px',
               height: '750px',
@@ -317,6 +401,8 @@ const MobilePreview = ({ onReplaySplash }) => {
               flexDirection: 'column',
               overflow: 'hidden',
               boxShadow: 'none',
+              // Anchors the product detail sheet to the phone screen
+              position: 'relative',
             }}
           >
           {/* Status Header */}
@@ -399,7 +485,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                   }}
                   title="View Cart"
                 >
-                  <span style={{ fontSize: '15px' }}>🛍️</span>
+                  <BagIcon size={16} />
                   {cart.length > 0 && (
                     <span
                       style={{
@@ -449,7 +535,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                       marginBottom: '14px',
                     }}
                   >
-                    <span style={{ color: '#646982', fontSize: '14px' }}>🔍</span>
+                    <span style={{ color: '#646982', display: 'flex' }}><SearchIcon size={15} /></span>
                     <input
                       type="text"
                       value={searchQuery}
@@ -469,7 +555,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                         onClick={() => setSearchQuery('')}
                         style={{ cursor: 'pointer', fontSize: '12px', color: '#646982' }}
                       >
-                        ✕
+                        <CloseIcon size={12} />
                       </span>
                     )}
                   </div>
@@ -554,7 +640,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                           letterSpacing: '0.5px',
                         }}
                       >
-                        ⚡ KATHMANDU 30-MIN EXPRESS
+                        <BoltIcon size={11} /> KATHMANDU 30-MIN EXPRESS
                       </span>
                       <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '6px', lineHeight: 1.2 }}>
                         Hurry Offers!<br />Get 15% Discount
@@ -575,7 +661,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                         fontSize: '20px',
                       }}
                     >
-                      🏷️
+                      <TagIcon size={20} />
                     </div>
                   </div>
 
@@ -590,10 +676,30 @@ const MobilePreview = ({ onReplaySplash }) => {
                   </div>
 
                   {/* Products Grid (matching Figma 2-column cards) */}
+                  {catalogLoading ? (
+                    <ValleyLoader
+                      variant="scooter"
+                      text="Loading tonight's menu across the Valley..."
+                    />
+                  ) : filteredProducts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '28px 12px', color: '#646982', fontSize: '12px' }}>
+                      Nothing matches that search. Try another drink or snack.
+                    </div>
+                  ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
                     {filteredProducts.map((p) => (
                       <div
                         key={p._id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setDetailProduct(p)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setDetailProduct(p);
+                          }
+                        }}
+                        title={`View details for ${p.name}`}
                         style={{
                           border: '1px solid #E2E8F0',
                           borderRadius: '16px',
@@ -602,6 +708,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                           flexDirection: 'column',
                           justifyContent: 'space-between',
                           background: '#FFFFFF',
+                          cursor: 'pointer',
                         }}
                       >
                         <div>
@@ -629,7 +736,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                                 }}
                               />
                             ) : (
-                              <span style={{ fontSize: '24px' }}>📦</span>
+                              <PackageIcon size={26} />
                             )}
                             {p.isAlcohol && (
                               <span
@@ -668,7 +775,12 @@ const MobilePreview = ({ onReplaySplash }) => {
                             Rs. {p.price}
                           </span>
                           <button
-                            onClick={() => addToCart(p)}
+                            onClick={(e) => {
+                              // Keep the quick-add from opening the detail sheet
+                              e.stopPropagation();
+                              addToCart(p, e.currentTarget);
+                            }}
+                            title={`Add ${p.name} to basket`}
                             style={{
                               width: '28px',
                               height: '28px',
@@ -684,7 +796,6 @@ const MobilePreview = ({ onReplaySplash }) => {
                               justifyContent: 'center',
                               padding: 0,
                             }}
-                            title="Add to basket"
                           >
                             +
                           </button>
@@ -692,61 +803,32 @@ const MobilePreview = ({ onReplaySplash }) => {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               )}
 
-              {/* Brand Loaders & Animation Showcase */}
-              {activeTab === 'loaders' && (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ borderBottom: '1px solid #D1D5DB', paddingBottom: '8px' }}>
+              {/* Live Delivery Map: pick and confirm the drop-off point */}
+              {activeTab === 'maps' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #D1D5DB' }}>
                     <div style={{ fontWeight: 700, fontSize: '13px', color: '#003893' }}>
-                      Valley Express Brand Animations
+                      Delivery Map
                     </div>
-                    <div style={{ fontSize: '11px', color: '#1F2A44', marginTop: '2px' }}>
-                      Strict 5-color palette, inline SVG keyframes, zero emojis, zero gradients.
+                    <div style={{ fontSize: '10px', color: '#646982', marginTop: '2px' }}>
+                      Drag the pin or search to set exactly where the rider should meet you.
                     </div>
                   </div>
-
-                  {/* 1. Fast Delivery Scooter Loader */}
-                  <div style={{ border: '1px solid #D1D5DB', borderRadius: '4px', padding: '12px', background: '#FFFFFF', textAlign: 'center' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#003893', marginBottom: '6px', textTransform: 'uppercase' }}>
-                      1. Fast Delivery Scooter Loader
-                    </div>
-                    <ValleyLoader variant="scooter" text="Rider on the way to Baluwatar..." size="default" />
-                  </div>
-
-                  {/* 2. Velocity Orbit Loader */}
-                  <div style={{ border: '1px solid #D1D5DB', borderRadius: '4px', padding: '12px', background: '#FFFFFF', textAlign: 'center' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#003893', marginBottom: '6px', textTransform: 'uppercase' }}>
-                      2. Velocity Orbit Rings Loader
-                    </div>
-                    <ValleyLoader variant="orbit" text="Finding nearest Kathmandu rider..." size="default" />
-                  </div>
-
-                  {/* 3. Classic Badge Loader */}
-                  <div style={{ border: '1px solid #D1D5DB', borderRadius: '4px', padding: '12px', background: '#FFFFFF', textAlign: 'center' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#003893', marginBottom: '6px', textTransform: 'uppercase' }}>
-                      3. Classic Badge &amp; Pin Loader
-                    </div>
-                    <ValleyLoader variant="badge" text="Preparing fresh order..." size="sm" />
-                  </div>
-
-                  {/* 4. Full Splash Sequence Replay */}
-                  <div style={{ border: '1px solid #D1D5DB', borderRadius: '4px', padding: '12px', background: '#FFFFFF', textAlign: 'center' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#003893', marginBottom: '6px', textTransform: 'uppercase' }}>
-                      4. App Startup Splash Sequence
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#1F2A44', marginBottom: '10px' }}>
-                      Orange square pop, V-stroke draw, hopping pin, scooter ride, and wordmark fade up.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onReplaySplash && onReplaySplash()}
-                      className="btn btn-primary btn-sm"
-                      style={{ width: '100%', fontSize: '12px' }}
-                    >
-                      Replay Full Splash Sequence
-                    </button>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <MapAddressPicker
+                      initialLocation={deliveryLocation}
+                      isModal={false}
+                      onConfirm={(newLoc) => {
+                        setDeliveryLocation(newLoc);
+                        showToast('Drop-off location updated', 'success');
+                        setActiveTab('cart');
+                      }}
+                      onClose={() => setActiveTab('home')}
+                    />
                   </div>
                 </div>
               )}
@@ -855,7 +937,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '16px', color: '#FF6B1A' }}>📍</span>
+                            <span style={{ color: '#FF6B1A', display: 'flex' }}><MapPinIcon size={15} /></span>
                             <span
                               style={{
                                 fontSize: '11px',
@@ -874,7 +956,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                             className="btn btn-primary btn-sm"
                             style={{ padding: '3px 10px', fontSize: '11px', height: '26px' }}
                           >
-                            🗺️ Select on Map
+                            <MapIcon size={12} /> Select on Map
                           </button>
                         </div>
 
@@ -953,7 +1035,7 @@ const MobilePreview = ({ onReplaySplash }) => {
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '16px' }}>💵</span>
+                              <CashIcon size={17} />
                               <div>
                                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#1F2A44' }}>Cash on Delivery</div>
                                 <div style={{ fontSize: '9px', color: '#64748B' }}>Pay cash or Scan on delivery</div>
@@ -1238,9 +1320,13 @@ const MobilePreview = ({ onReplaySplash }) => {
 
                   {/* Messages Feed */}
                   <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {chatMessages.length === 0 ? (
+                    {chatLoading ? (
+                      <div style={{ margin: 'auto' }}>
+                        <ValleyLoader variant="badge" size="sm" text="Opening your chat with dispatch..." />
+                      </div>
+                    ) : chatMessages.length === 0 ? (
                       <div style={{ margin: 'auto', textAlign: 'center', color: '#64748B', fontSize: '12px', padding: '20px' }}>
-                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
+                        <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}><ChatIcon size={30} /></div>
                         <div style={{ fontWeight: 700, color: '#1F2A44', marginBottom: '4px' }}>Direct Support Chat</div>
                         <div>Send questions about cold drinks, delivery ETA, or address directions.</div>
                       </div>
@@ -1272,6 +1358,22 @@ const MobilePreview = ({ onReplaySplash }) => {
                     )}
                   </div>
 
+                  {chatError && (
+                    <div
+                      role="alert"
+                      style={{
+                        background: '#FFFFFF',
+                        borderTop: '1px solid #EF4444',
+                        color: '#EF4444',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '6px 12px',
+                      }}
+                    >
+                      {chatError}
+                    </div>
+                  )}
+
                   {/* Message Input Box */}
                   <form
                     onSubmit={handleSendCustomerMessage}
@@ -1280,7 +1382,10 @@ const MobilePreview = ({ onReplaySplash }) => {
                     <input
                       type="text"
                       value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
+                      onChange={(e) => {
+                        setChatInput(e.target.value);
+                        if (chatError) setChatError('');
+                      }}
                       placeholder="Message store admin..."
                       style={{ flex: 1, minHeight: '36px', fontSize: '12px', padding: '0 12px', borderRadius: '18px', border: '1px solid #D1D5DB' }}
                     />
@@ -1334,6 +1439,7 @@ const MobilePreview = ({ onReplaySplash }) => {
 
                 <button
                   type="button"
+                  ref={cartTabRef}
                   onClick={() => setActiveTab('cart')}
                   style={{
                     flex: 1,
@@ -1347,6 +1453,8 @@ const MobilePreview = ({ onReplaySplash }) => {
                     gap: '3px',
                     color: activeTab === 'cart' ? '#FF6B1A' : '#1F2A44',
                     fontWeight: activeTab === 'cart' ? 700 : 500,
+                    transform: cartPulse ? 'scale(1.18)' : 'scale(1)',
+                    transition: 'transform 180ms ease-out',
                   }}
                 >
                   <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
@@ -1374,8 +1482,25 @@ const MobilePreview = ({ onReplaySplash }) => {
                     fontWeight: activeTab === 'chat' ? 700 : 500,
                   }}
                 >
-                  <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
                     Chat
+                    {unreadChatCount > 0 && (
+                      <span
+                        className="unread-count"
+                        title={`${unreadChatCount} unread repl${unreadChatCount === 1 ? 'y' : 'ies'} from store admin`}
+                      >
+                        {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                      </span>
+                    )}
                   </span>
                   {activeTab === 'chat' && (
                     <div style={{ width: '16px', height: '2px', background: '#FF6B1A', borderRadius: '1px' }} />
@@ -1384,7 +1509,7 @@ const MobilePreview = ({ onReplaySplash }) => {
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('loaders')}
+                  onClick={() => setActiveTab('maps')}
                   style={{
                     flex: 1,
                     background: 'none',
@@ -1395,14 +1520,14 @@ const MobilePreview = ({ onReplaySplash }) => {
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '3px',
-                    color: activeTab === 'loaders' ? '#FF6B1A' : '#1F2A44',
-                    fontWeight: activeTab === 'loaders' ? 700 : 500,
+                    color: activeTab === 'maps' ? '#FF6B1A' : '#1F2A44',
+                    fontWeight: activeTab === 'maps' ? 700 : 500,
                   }}
                 >
                   <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                    Loaders
+                    Maps
                   </span>
-                  {activeTab === 'loaders' && (
+                  {activeTab === 'maps' && (
                     <div style={{ width: '16px', height: '2px', background: '#FF6B1A', borderRadius: '1px' }} />
                   )}
                 </button>
@@ -1526,14 +1651,14 @@ const MobilePreview = ({ onReplaySplash }) => {
                           style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
                           title="Open turn-by-turn navigation in Google Maps"
                         >
-                          🧭 Navigation
+                          <NavigationIcon size={13} /> Navigation
                         </button>
                         <a
                           href={`tel:${order.customer?.phone || '9841234567'}`}
                           className="btn btn-secondary btn-sm"
                           style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
                         >
-                          📞 Call
+                          <PhoneIcon size={13} /> Call
                         </a>
                         {order.status === 'rider_assigned' && (
                           <button
@@ -1568,6 +1693,61 @@ const MobilePreview = ({ onReplaySplash }) => {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Order placement: hold the screen with the branded loader so the
+              customer sees the order being sent rather than a dead button */}
+          {placingOrder && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(255, 255, 255, 0.94)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 25,
+              }}
+            >
+              <ValleyLoader
+                variant="orbit"
+                size="lg"
+                text="Sending your order to the Valley hub..."
+              />
+            </div>
+          )}
+
+          {/* Add-to-cart flight markers */}
+          {flyers.map((f) => (
+            <span
+              key={f.id}
+              className="cart-flyer"
+              style={{
+                left: `${f.x0}px`,
+                top: `${f.y0}px`,
+                '--fly-x': `${f.x1 - f.x0}px`,
+                '--fly-y': `${f.y1 - f.y0}px`,
+              }}
+            />
+          ))}
+
+          {/* Product detail sheet, slides over the phone screen */}
+          {detailProduct && (
+            <ProductDetailSheet
+              product={detailProduct}
+              onClose={() => setDetailProduct(null)}
+              onAdd={(qty, sourceEl) => {
+                for (let i = 0; i < qty; i += 1) {
+                  // Only the first add flies, so the screen does not swarm
+                  addToCart(detailProduct, i === 0 ? sourceEl : undefined);
+                }
+                setDetailProduct(null);
+                showToast(
+                  `${qty} × ${detailProduct.name} added to basket`,
+                  'success'
+                );
+              }}
+            />
           )}
         </div>
         </div>

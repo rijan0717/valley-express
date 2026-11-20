@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/socket_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_loader.dart';
+import '../../providers/chat_unread_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? orderId;
@@ -31,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _socket.joinOrder(widget.orderId!);
     }
     _fetchMessages();
+    _markRead();
 
     _socket.socket?.on('chat:message', (data) {
       if (!mounted) return;
@@ -40,8 +44,15 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.add(data);
         });
         _scrollToBottom();
+        // The thread is on screen, so it counts as read straight away
+        if (data['senderRole'] == 'admin') _markRead();
       }
     });
+  }
+
+  void _markRead() {
+    if (!mounted) return;
+    context.read<ChatUnreadProvider>().markThreadRead(_resolvedThreadId);
   }
 
   @override
@@ -169,7 +180,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          ? const ValleyLoaderScreen(label: "Opening your chat...")
           : Column(
               children: [
                 Expanded(

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChatUnread } from '../context/ChatUnreadContext';
 import { LogoMark } from './Logo';
 
 // Clean Lucide SVG Icon components (strictly no emojis)
@@ -73,6 +74,7 @@ const MobileIcon = () => (
 
 const Sidebar = () => {
   const { logout, user } = useAuth();
+  const { total: unreadChat } = useChatUnread();
 
   const navItems = [
     { to: '/', label: 'Overview', icon: <DashboardIcon /> },
@@ -81,7 +83,7 @@ const Sidebar = () => {
     { to: '/offers', label: 'Offers & Deals', icon: <OffersIcon /> },
     { to: '/riders', label: 'Riders Fleet', icon: <RidersIcon /> },
     { to: '/users', label: 'Registered Users', icon: <UsersIcon /> },
-    { to: '/chat', label: 'Customer Support', icon: <ChatIcon /> },
+    { to: '/chat', label: 'Customer Support', icon: <ChatIcon />, badge: unreadChat },
     { to: '/settings', label: 'Store Settings', icon: <SettingsIcon /> },
     { to: '/mobile-preview', label: 'Mobile Preview', icon: <MobileIcon /> },
   ];
@@ -112,6 +114,14 @@ const Sidebar = () => {
             >
               <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
               <span>{item.label}</span>
+              {item.badge > 0 && (
+                <span
+                  className="unread-count"
+                  title={`${item.badge} unread message${item.badge === 1 ? '' : 's'}`}
+                >
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </NavLink>
           </li>
         ))}

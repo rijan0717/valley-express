@@ -4,11 +4,15 @@ const {
   getMessagesByOrder,
   sendMessage,
   getAdminChatThreads,
+  getUnreadCount,
+  markThreadRead,
 } = require('../controllers/chatController');
 const { protect, requireRole } = require('../middleware/auth');
 
 router.get('/threads', protect, requireRole('admin'), getAdminChatThreads);
+router.get('/unread', protect, getUnreadCount);
 router.get('/:orderId', protect, getMessagesByOrder);
+router.post('/:orderId/read', protect, markThreadRead);
 router.post('/:orderId', protect, sendMessage);
 
 module.exports = router;

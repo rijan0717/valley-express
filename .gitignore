@@ -62,3 +62,9 @@ Thumbs.db
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# Local MongoDB data directory.
+# A live WiredTiger directory must never be committed: git cannot capture a
+# consistent snapshot of a running database, which is how the previously
+# committed copy ended up corrupt. Recreate with: npm run seed
+backend/data/
