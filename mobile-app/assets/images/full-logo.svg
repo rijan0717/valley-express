@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 160" width="500" height="160" role="img" aria-label="Valley Express Logo">
+  <!-- Logo Mark -->
+  <g transform="translate(0, 0)">
+    <g stroke="#003893" stroke-width="8" stroke-linecap="round">
+      <line x1="10" y1="52" x2="50" y2="52"></line>
+      <line x1="22" y1="80" x2="52" y2="80"></line>
+      <line x1="10" y1="108" x2="50" y2="108"></line>
+    </g>
+    <rect x="70" y="10" width="140" height="140" rx="34" fill="#FF6B1A"></rect>
+    <path d="M104 56 L140 120 L176 56" fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"></path>
+    <g>
+      <path d="M140 68 C135 61 131 56 131 49 A9 9 0 0 1 149 49 C149 56 145 61 140 68 Z" fill="#003893"></path>
+      <circle cx="140" cy="49" r="3.5" fill="#FFFFFF"></circle>
+    </g>
+  </g>
+
+  <!-- Typography -->
+  <text x="235" y="82" font-family="'Poppins', 'Plus Jakarta Sans', Arial, sans-serif" font-size="68" font-weight="700" fill="#003893" letter-spacing="-1.5">Valley</text>
+  <text x="238" y="112" font-family="'Poppins', 'Plus Jakarta Sans', Arial, sans-serif" font-size="20" font-weight="600" fill="#E8590C" letter-spacing="8">EXPRESS</text>
+  <text x="238" y="138" font-family="'Poppins', 'Plus Jakarta Sans', Arial, sans-serif" font-size="12" font-weight="500" fill="#64748B">Fast to order. Fast to your door.</text>
+</svg>

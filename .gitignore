@@ -1,0 +1,64 @@
+# Valley Express - Root Git Ignore
+
+# Development & SDK Tools
+tools/
+tools/*
+
+# Dependency Directories
+node_modules/
+*/node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Build outputs
+dist/
+*/dist/
+build/
+*/build/
+**/build/
+out/
+.next/
+.cache/
+
+# Flutter / Dart
+.dart_tool/
+*/.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.apk
+*.aab
+*.symbols
+*.map.json
+android/app/debug
+android/app/profile
+android/app/release
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
