@@ -6,7 +6,6 @@ import '../../providers/chat_unread_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../../widgets/unread_badge.dart';
-import '../../widgets/valley_dialog.dart';
 import 'cart_screen.dart';
 import 'my_orders_screen.dart';
 import 'chat_screen.dart';
@@ -27,78 +26,394 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Keeps the order counters on this screen current
       Provider.of<OrderProvider>(context, listen: false).fetchMyOrders();
       Provider.of<ChatUnreadProvider>(context, listen: false).start();
     });
   }
 
+  void _showAvatarPicker() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final urlController = TextEditingController();
+
+    final List<String> avatars = [
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&auto=format&fit=crop&q=80',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(22, 16, 22, MediaQuery.of(ctx).viewInsets.bottom + 22),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Choose Profile Photo',
+              style: AppTheme.displayFont(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Select a curated avatar or enter a custom photo image URL',
+              style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 18),
+
+            // Avatars Grid
+            Wrap(
+              spacing: 14,
+              runSpacing: 14,
+              alignment: WrapAlignment.center,
+              children: avatars.map((url) {
+                final isSelected = auth.user?.avatarUrl == url;
+                return GestureDetector(
+                  onTap: () {
+                    auth.updateAvatar(url);
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile image updated!'),
+                        duration: Duration(seconds: 1),
+                        backgroundColor: AppTheme.primaryOrange,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primaryOrange : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: Image.network(
+                        url,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.person),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 18),
+
+            // Custom URL input
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.link_rounded, color: AppTheme.primaryOrange, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: urlController,
+                      style: AppTheme.bodyFont(fontSize: 12),
+                      decoration: const InputDecoration(
+                        hintText: 'Paste custom image URL...',
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      final customUrl = urlController.text.trim();
+                      if (customUrl.isNotEmpty) {
+                        auth.updateAvatar(customUrl);
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Custom profile image updated!'),
+                            backgroundColor: AppTheme.primaryOrange,
+                          ),
+                        );
+                      }
+                    },
+                    child: Text('Save', style: AppTheme.displayFont(fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // REDESIGNED CONFIRMATION BOX (MATCHING EXACT HTML PROTOTYPE LOGOUT MODAL)
+  Future<void> _showLogoutModal() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppTheme.alertRed.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.logout_rounded, color: AppTheme.alertRed, size: 26),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Sign out?',
+              textAlign: TextAlign.center,
+              style: AppTheme.displayFont(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'You will need your password or an SMS code to sign back in. Your basket and order history stay on your account.',
+              textAlign: TextAlign.center,
+              style: AppTheme.bodyFont(
+                fontSize: 13,
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 22),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.alertRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'Sign Out',
+                style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                backgroundColor: isDark ? AppTheme.darkBgDevice : Colors.white,
+                side: BorderSide(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Stay',
+                style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+
+    if (ok == true && mounted) {
+      await auth.logout();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final prefs = Provider.of<PreferencesProvider>(context);
     final user = auth.user;
-    final userName = user?.name.isNotEmpty == true ? user!.name : 'Kathmandu Customer';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final userName = user?.name.isNotEmpty == true ? user!.name : 'Prajina Maharjan';
     final userPhone = user?.phone.isNotEmpty == true ? '+977 ${user!.phone}' : '+977 9841234567';
+    final initials = userName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase();
+    final hasAvatar = user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldBg,
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(
+          'Profile',
+          style: AppTheme.displayFont(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+          ),
+        ),
+        backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
             onTap: () => Navigator.of(context).maybePop(),
             child: Container(
-              decoration: const BoxDecoration(
-                color: AppTheme.inputBg,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.arrow_back, size: 20, color: AppTheme.textMain),
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 20,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
             ),
           ),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Info Header Card (matching Figma reference)
+            // 1. PROFILE HERO CARD WITH AVATAR IMAGE & PICKER
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppTheme.background,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.border),
+                color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Stack(
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFECE0),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.accent, width: 2),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.person, size: 36, color: AppTheme.accent),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppTheme.accent,
+                  GestureDetector(
+                    onTap: _showAvatarPicker,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.primaryOrange, AppTheme.primaryDeep],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryGlow,
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          child: const Icon(Icons.edit, size: 10, color: AppTheme.background),
+                          child: hasAvatar
+                              ? ClipOval(
+                                  child: Image.network(
+                                    user.avatarUrl!,
+                                    width: 68,
+                                    height: 68,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: Text(
+                                        initials,
+                                        style: AppTheme.displayFont(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 22,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(
+                                    initials.isNotEmpty ? initials : 'PM',
+                                    style: AppTheme.displayFont(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 22,
+                                    ),
+                                  ),
+                                ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primaryOrange,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -107,28 +422,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Text(
                           userName,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.textMain),
+                          style: AppTheme.displayFont(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           userPhone,
-                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          style: AppTheme.bodyFont(
+                            fontSize: 12,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.success.withAlpha(25),
-                            borderRadius: BorderRadius.circular(12),
+                            color: AppTheme.successGreen.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.successGreen.withOpacity(0.3)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.verified, size: 12, color: AppTheme.success),
-                              SizedBox(width: 4),
+                              const Icon(Icons.verified_rounded, size: 12, color: AppTheme.successGreen),
+                              const SizedBox(width: 4),
                               Text(
                                 '18+ Verified Account',
-                                style: TextStyle(color: AppTheme.success, fontSize: 10, fontWeight: FontWeight.w600),
+                                style: AppTheme.bodyFont(
+                                  color: AppTheme.successGreen,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
@@ -141,177 +468,310 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Order activity at a glance
-            Consumer<OrderProvider>(
-              builder: (_, orderProv, __) {
-                final orders = orderProv.orders;
-                final active = orders
-                    .where((o) => o.status != 'delivered' && o.status != 'cancelled')
-                    .length;
-                final delivered =
-                    orders.where((o) => o.status == 'delivered').length;
-                final spent = orders
-                    .where((o) => o.status == 'delivered')
-                    .fold<num>(0, (sum, o) => sum + o.total);
-
-                return Row(
-                  children: [
-                    _statCard('Active', '$active', Icons.local_shipping_outlined,
-                        AppTheme.accent),
-                    const SizedBox(width: 10),
-                    _statCard('Delivered', '$delivered',
-                        Icons.check_circle_outline_rounded, AppTheme.success),
-                    const SizedBox(width: 10),
-                    _statCard('Spent', 'Rs. ${spent.toStringAsFixed(0)}',
-                        Icons.account_balance_wallet_outlined, AppTheme.brandBlue),
+            // 2. NIGHT OWL VIP MEMBERSHIP CARD
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primaryOrange.withOpacity(0.12),
+                    AppTheme.navyBrand.withOpacity(0.1),
                   ],
-                );
-              },
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.primaryOrange.withOpacity(0.28)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.primaryOrange, AppTheme.primaryDeep],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryGlow,
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.star_rounded, color: Colors.white, size: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Night Owl Club',
+                              style: AppTheme.displayFont(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryOrange,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                'GOLD TIER',
+                                style: AppTheme.displayFont(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Free night delivery & priority 20-min rider dispatch',
+                          style: AppTheme.bodyFont(
+                            fontSize: 11,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: AppTheme.primaryOrange, size: 20),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
-            // Account section
-            _sectionLabel('Account'),
+            // 3. THREE VALUE SHORTCUT CARDS: WALLET, VOUCHERS, FAVORITES
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'Valley Cash',
+                    value: 'Rs. 450',
+                    icon: Icons.account_balance_wallet_outlined,
+                    iconColor: AppTheme.primaryOrange,
+                    isDark: isDark,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Valley Wallet Balance: Rs. 450 available for 1-tap checkout.'),
+                          backgroundColor: AppTheme.navyBrand,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'My Vouchers',
+                    value: '3 Active',
+                    icon: Icons.local_offer_outlined,
+                    iconColor: AppTheme.successGreen,
+                    isDark: isDark,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Active Vouchers:\n1. VALLEYFIRST (15% OFF)\n2. FREEICE (Free 2kg Tube Ice)'),
+                          backgroundColor: AppTheme.navyBrand,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'Saved Drinks',
+                    value: '8 Items',
+                    icon: Icons.favorite_border_rounded,
+                    iconColor: const Color(0xFFEC4899),
+                    isDark: isDark,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+
+            // 4. ACCOUNT SECTION
+            _buildGroupHeader('Account', isDark),
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.background,
+                color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.border),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                ),
               ),
               child: Column(
                 children: [
                   _buildMenuItem(
                     icon: Icons.badge_outlined,
-                    iconBg: const Color(0xFFEFF6FF),
-                    iconColor: AppTheme.brandBlue,
+                    iconColor: AppTheme.navyBrand,
                     title: 'Personal Details',
                     subtitle: 'Name, email and account information',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const EditProfileScreen()),
                     ),
+                    isDark: isDark,
                   ),
-                  const Divider(height: 1, indent: 64, color: AppTheme.border),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
                   _buildMenuItem(
                     icon: Icons.password_rounded,
-                    iconBg: const Color(0xFFF5F3FF),
-                    iconColor: Colors.deepPurple,
+                    iconColor: const Color(0xFF6366F1),
                     title: 'Change Password',
                     subtitle: 'Update the password used to sign in',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
                     ),
+                    isDark: isDark,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // Preferences section
-            _sectionLabel('Preferences'),
-            Consumer<PreferencesProvider>(
-              builder: (_, prefs, __) => Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.background,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Column(
-                  children: [
-                    _buildSwitchItem(
-                      icon: Icons.my_location_rounded,
-                      iconBg: const Color(0xFFEFF6FF),
-                      iconColor: AppTheme.brandBlue,
-                      title: 'Location Sharing',
-                      subtitle: prefs.locationSharing
-                          ? 'Drop-off pin centres on your live position'
-                          : 'Off — you will pick drop-off points manually',
-                      value: prefs.locationSharing,
-                      onChanged: (v) {
-                        prefs.setLocationSharing(v);
-                        _toast(
-                          v
-                              ? 'Location sharing turned on'
-                              : 'Location sharing turned off',
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, indent: 64, color: AppTheme.border),
-                    _buildSwitchItem(
-                      icon: Icons.notifications_active_outlined,
-                      iconBg: const Color(0xFFFFF7ED),
-                      iconColor: AppTheme.accent,
-                      title: 'Order Notifications',
-                      subtitle: prefs.orderNotifications
-                          ? 'Alerts on every delivery status change'
-                          : 'Off — check the tracking screen for updates',
-                      value: prefs.orderNotifications,
-                      onChanged: (v) {
-                        prefs.setOrderNotifications(v);
-                        _toast(
-                          v
-                              ? 'Order notifications turned on'
-                              : 'Order notifications turned off',
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, indent: 64, color: AppTheme.border),
-                    _buildSwitchItem(
-                      icon: Icons.translate_rounded,
-                      iconBg: const Color(0xFFF0FDF4),
-                      iconColor: AppTheme.success,
-                      title: 'Show Nepali Product Names',
-                      subtitle: prefs.showNepaliNames
-                          ? 'Nepali names shown under each product'
-                          : 'English product names only',
-                      value: prefs.showNepaliNames,
-                      onChanged: (v) {
-                        prefs.setShowNepaliNames(v);
-                        _toast(
-                          v
-                              ? 'Nepali product names shown'
-                              : 'Nepali product names hidden',
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Navigation Menu Options List
-            _sectionLabel('Orders & Support'),
+            // 5. PREFERENCES & THEME (WITH DARK MODE TOGGLE)
+            _buildGroupHeader('Preferences & Theme', isDark),
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.background,
+                color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.border),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                ),
+              ),
+              child: Column(
+                children: [
+                  // THEME SWITCHER
+                  _buildSwitchRow(
+                    icon: Icons.dark_mode_outlined,
+                    iconColor: const Color(0xFFD97706),
+                    title: 'Dark / Midnight Mode',
+                    subtitle: prefs.isDarkMode
+                        ? 'Currently Midnight Dark Mode'
+                        : 'Currently Clean Modern Light Mode',
+                    value: prefs.isDarkMode,
+                    onChanged: (val) {
+                      prefs.setDarkMode(val);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(val ? 'Switched to Midnight Dark Theme' : 'Switched to Light Theme'),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: AppTheme.primaryOrange,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    isDark: isDark,
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
+
+                  // LOCATION SHARING
+                  _buildSwitchRow(
+                    icon: Icons.my_location_rounded,
+                    iconColor: AppTheme.navyBrand,
+                    title: 'Location Sharing',
+                    subtitle: prefs.locationSharing
+                        ? 'Drop-off pin centres on your live position'
+                        : 'Off — choose address manually',
+                    value: prefs.locationSharing,
+                    onChanged: (val) => prefs.setLocationSharing(val),
+                    isDark: isDark,
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
+
+                  // ORDER NOTIFICATIONS
+                  _buildSwitchRow(
+                    icon: Icons.notifications_active_outlined,
+                    iconColor: AppTheme.warningYellow,
+                    title: 'Order Notifications',
+                    subtitle: prefs.orderNotifications
+                        ? 'Live alerts on every delivery status update'
+                        : 'Off — view status inside tracking',
+                    value: prefs.orderNotifications,
+                    onChanged: (val) => prefs.setOrderNotifications(val),
+                    isDark: isDark,
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
+
+                  // NEPALI PRODUCT NAMES
+                  _buildSwitchRow(
+                    icon: Icons.translate_rounded,
+                    iconColor: AppTheme.successGreen,
+                    title: 'Show Nepali Product Names',
+                    subtitle: prefs.showNepaliNames
+                        ? 'Display Nepali names under each item'
+                        : 'Off — show English names only',
+                    value: prefs.showNepaliNames,
+                    onChanged: (val) => prefs.setShowNepaliNames(val),
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+
+            // 6. ORDERS & SUPPORT SECTION
+            _buildGroupHeader('Orders & Support', isDark),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                ),
               ),
               child: Column(
                 children: [
                   _buildMenuItem(
                     icon: Icons.location_on_outlined,
-                    iconBg: const Color(0xFFEFF6FF),
-                    iconColor: AppTheme.brandBlue,
+                    iconColor: AppTheme.primaryOrange,
                     title: 'Saved Delivery Addresses',
                     subtitle: 'Pick and manage Kathmandu drop-off spots',
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const MapAddressPickerScreen(
-                            initialLat: 27.7280,
-                            initialLon: 85.3300,
-                            initialAddress: 'Baluwatar, Kathmandu',
-                          ),
-                        ),
+                        MaterialPageRoute(builder: (_) => const MapAddressPickerScreen()),
                       );
                     },
+                    isDark: isDark,
                   ),
-                  const Divider(height: 1, indent: 64, color: AppTheme.border),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
                   _buildMenuItem(
                     icon: Icons.receipt_long_outlined,
-                    iconBg: const Color(0xFFFFF7ED),
-                    iconColor: AppTheme.accent,
+                    iconColor: const Color(0xFFF97316),
                     title: 'My Orders',
                     subtitle: 'Track active deliveries & order history',
                     onTap: () {
@@ -319,236 +779,237 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         MaterialPageRoute(builder: (_) => const MyOrdersScreen()),
                       );
                     },
+                    isDark: isDark,
                   ),
-                  const Divider(height: 1, indent: 64, color: AppTheme.border),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
                   _buildMenuItem(
-                    icon: Icons.shopping_bag_outlined,
-                    iconBg: const Color(0xFFF0FDF4),
-                    iconColor: AppTheme.success,
-                    title: 'View Cart & Checkout',
-                    subtitle: 'Manage items currently in your basket',
+                    icon: Icons.chat_bubble_outline_rounded,
+                    iconColor: AppTheme.chilledIce,
+                    title: 'Live Chat with Store Admin',
+                    subtitle: 'Real-time inquiries & late night support',
+                    trailing: Consumer<ChatUnreadProvider>(
+                      builder: (_, unread, __) => UnreadBadge(count: unread.total),
+                    ),
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const CartScreen()),
+                        MaterialPageRoute(builder: (_) => const ChatScreen()),
                       );
                     },
+                    isDark: isDark,
                   ),
-                  const Divider(height: 1, indent: 64, color: AppTheme.border),
-                  Consumer<ChatUnreadProvider>(
-                    builder: (_, unread, __) => _buildMenuItem(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      iconBg: const Color(0xFFFFF7ED),
-                      iconColor: AppTheme.accent,
-                      title: 'Live Chat with Store Admin',
-                      subtitle: unread.total > 0
-                          ? '${unread.total} unread repl${unread.total == 1 ? 'y' : 'ies'} from dispatch'
-                          : 'Real-time inquiries, special requests & support',
-                      badgeCount: unread.total,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const ChatScreen()),
-                        );
-                      },
-                    ),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                   ),
-                  const Divider(height: 1, indent: 64, color: AppTheme.border),
-                  _buildMenuItem(
-                    icon: Icons.shield_outlined,
-                    iconBg: const Color(0xFFF5F3FF),
-                    iconColor: Colors.deepPurple,
-                    title: 'Legal Compliance & Age Policy',
-                    subtitle: 'Mandatory 18+ ID check for alcohol delivery',
-                    onTap: () => ValleyDialog.info(
-                      context,
-                      icon: Icons.shield_outlined,
-                      accent: Colors.deepPurple,
-                      title: 'Kathmandu Delivery Policy',
-                      message:
-                          'Valley Express complies with local alcohol regulations. Orders containing alcoholic beverages require physical 18+ ID verification at the door before the rider hands them over.',
-                      buttonLabel: 'Understood',
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 64, color: AppTheme.border),
                   _buildMenuItem(
                     icon: Icons.logout_rounded,
-                    iconBg: const Color(0xFFFEF2F2),
-                    iconColor: AppTheme.danger,
+                    iconColor: AppTheme.alertRed,
                     title: 'Log Out',
-                    subtitle: 'Sign out of your account',
-                    isDanger: true,
-                    onTap: () async {
-                      final confirmed = await ValleyDialog.confirm(
-                        context,
-                        icon: Icons.logout_rounded,
-                        title: 'Sign out?',
-                        message:
-                            'You will need your password or an SMS code to sign back in. Your basket and order history stay on your account.',
-                        confirmLabel: 'Sign Out',
-                        cancelLabel: 'Stay',
-                        isDestructive: true,
-                      );
-                      if (!confirmed) return;
-
-                      await auth.logout();
-                      if (!context.mounted) return;
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                        (route) => false,
-                      );
-                    },
+                    subtitle: 'Sign out of your delivery account',
+                    isDestructive: true,
+                    onTap: _showLogoutModal, // EXACT PROTOTYPE MODAL
+                    isDark: isDark,
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  void _toast(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppTheme.darkNavy,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+  Widget _buildGroupHeader(String title, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: AppTheme.displayFont(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
         ),
-      );
+      ),
+    );
   }
 
-  Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 8),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            text.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.9,
-              color: AppTheme.textMuted,
-            ),
+  Widget _buildMetricCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
           ),
         ),
-      );
-
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.background,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border),
-        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 19, color: color),
-            const SizedBox(height: 7),
-            FittedBox(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: AppTheme.displayFont(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: iconColor,
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              label,
-              style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+              title,
+              style: AppTheme.bodyFont(
+                fontSize: 11,
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchItem({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return SwitchListTile.adaptive(
-      value: value,
-      onChanged: onChanged,
-      activeThumbColor: AppTheme.accent,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      secondary: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: iconColor, size: 22),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: AppTheme.textMain,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
       ),
     );
   }
 
   Widget _buildMenuItem({
     required IconData icon,
-    required Color iconBg,
     required Color iconColor,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    bool isDanger = false,
-    int badgeCount = 0,
+    required bool isDark,
+    Widget? trailing,
+    bool isDestructive = false,
   }) {
-    return ListTile(
+    return InkWell(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: iconColor, size: 22),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: isDanger ? AppTheme.danger : AppTheme.textMain,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (badgeCount > 0) ...[
-            UnreadBadge(count: badgeCount),
-            const SizedBox(width: 8),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTheme.displayFont(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDestructive
+                          ? AppTheme.alertRed
+                          : (isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: AppTheme.bodyFont(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              trailing,
+              const SizedBox(width: 8),
+            ],
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: isDestructive ? AppTheme.alertRed : Colors.grey,
+            ),
           ],
-          const Icon(Icons.chevron_right, size: 18, color: AppTheme.textSubtle),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTheme.displayFont(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  style: AppTheme.bodyFont(
+                    fontSize: 11,
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            activeColor: AppTheme.primaryOrange,
+            onChanged: onChanged,
+          ),
         ],
       ),
     );

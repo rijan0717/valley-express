@@ -14,8 +14,9 @@ import 'chat_screen.dart';
 import 'profile_screen.dart';
 import 'product_detail_screen.dart';
 import 'map_address_picker_screen.dart';
+import 'order_tracking_screen.dart';
+import 'notification_screen.dart';
 import '../../widgets/valley_product_image.dart';
-import '../../widgets/unread_badge.dart';
 import '../../widgets/fly_to_cart.dart';
 import '../../providers/chat_unread_provider.dart';
 
@@ -29,6 +30,8 @@ class CustomerHomeScreen extends StatefulWidget {
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   final ApiClient _api = ApiClient();
   final TextEditingController _searchController = TextEditingController();
+  final PageController _offersPageController = PageController();
+
   List<ProductModel> _products = [];
   List<dynamic> _categories = [];
   String _selectedCategory = '';
@@ -38,7 +41,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   double _deliveryLon = 85.3300;
   bool _loading = true;
   int _currentNavIndex = 0;
-  // Landing point for the add-to-cart flight animation
+  int _currentOfferSlide = 0;
+
   final GlobalKey _cartTargetKey = GlobalKey();
 
   @override
@@ -47,53 +51,336 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<OrderProvider>(context, listen: false).fetchMyOrders();
-      Provider.of<ChatUnreadProvider>(context, listen: false).start();
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      Provider.of<ChatUnreadProvider>(context, listen: false).start(auth.user?.id);
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _offersPageController.dispose();
     super.dispose();
   }
+
+  static final List<ProductModel> _curatedCatalog = [
+    // Beers & Ciders
+    ProductModel(
+      id: 'beer-1',
+      name: 'Gorkha Premium Lager Beer 650ml',
+      nameNe: 'गोर्खा प्रिमियम बियर',
+      price: 380,
+      unit: '650ml Bottle • 5.0% ABV',
+      categoryName: 'Beers & Ciders',
+      categorySlug: 'beers',
+      categoryId: 'cat-beers',
+      description: 'Authentically brewed in Nepal using finest malted barley, European hops and Himalayan spring water.',
+      isAlcohol: true,
+      alcoholPercentage: 5.0,
+      images: ['https://images.unsplash.com/photo-1608270546103-9764516209ee?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'beer-2',
+      name: 'Tuborg Classic Strong 650ml',
+      nameNe: 'टुबोर्ग क्लासिक स्ट्रङ बियर',
+      price: 410,
+      unit: '650ml Bottle • 6.5% ABV',
+      categoryName: 'Beers & Ciders',
+      categorySlug: 'beers',
+      categoryId: 'cat-beers',
+      description: 'Nepal\'s favorite strong lager beer with smooth malt flavor.',
+      isAlcohol: true,
+      alcoholPercentage: 6.5,
+      images: ['https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'beer-3',
+      name: 'Barasingha Belgian Witbier 650ml',
+      nameNe: 'बारासिंघा बेल्जियन ह्विटबियर',
+      price: 430,
+      unit: '650ml Bottle • 5.0% ABV',
+      categoryName: 'Beers & Ciders',
+      categorySlug: 'beers',
+      categoryId: 'cat-beers',
+      description: 'Craft brewed wheat beer infused with orange peel and coriander seeds.',
+      isAlcohol: true,
+      alcoholPercentage: 5.0,
+      images: ['https://images.unsplash.com/photo-1571613316887-6f8d5cbf7ef7?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'beer-4',
+      name: 'Somersby Apple Cider 330ml',
+      nameNe: 'सोमर्सबी एप्पल साइडर',
+      price: 260,
+      unit: '330ml Can • 4.5% ABV',
+      categoryName: 'Beers & Ciders',
+      categorySlug: 'beers',
+      categoryId: 'cat-beers',
+      description: 'Refreshing fermented apple cider with sparkling fruit crispness.',
+      isAlcohol: true,
+      alcoholPercentage: 4.5,
+      images: ['https://images.unsplash.com/photo-1543007630-9710e4a00a20?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'beer-5',
+      name: 'Carlsberg Smooth Draught 650ml',
+      nameNe: 'कार्लसबर्ग स्मूथ ड्राफ्ट',
+      price: 440,
+      unit: '650ml Bottle • 5.0% ABV',
+      categoryName: 'Beers & Ciders',
+      categorySlug: 'beers',
+      categoryId: 'cat-beers',
+      description: 'Easy drinking premium lager with a smooth draught feel.',
+      isAlcohol: true,
+      alcoholPercentage: 5.0,
+      images: ['https://images.unsplash.com/photo-1608270546103-9764516209ee?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'beer-6',
+      name: 'Nepal Ice Super Strong Beer 650ml',
+      nameNe: 'नेपाल आइस सुपर स्ट्रङ बियर',
+      price: 360,
+      unit: '650ml Bottle • 7.0% ABV',
+      categoryName: 'Beers & Ciders',
+      categorySlug: 'beers',
+      categoryId: 'cat-beers',
+      description: 'Classic robust lager brewed with Himalayan spring water.',
+      isAlcohol: true,
+      alcoholPercentage: 7.0,
+      images: ['https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&auto=format&fit=crop&q=80'],
+    ),
+
+    // Spirits & Rum
+    ProductModel(
+      id: 'spirit-1',
+      name: 'Old Durbar Black Chimney 750ml',
+      nameNe: 'ओल्ड दरबार ब्ल्याक चिम्नी',
+      price: 3200,
+      unit: '750ml Bottle • 42.8% ABV',
+      categoryName: 'Whiskey & Spirits',
+      categorySlug: 'spirits',
+      categoryId: 'cat-spirits',
+      description: 'Peated malt scotch blended with handcrafted Himalayan grain spirits.',
+      isAlcohol: true,
+      alcoholPercentage: 42.8,
+      images: ['https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'spirit-2',
+      name: 'Khukri XXX Himalayan Rum 750ml',
+      nameNe: 'खुकुरी रम',
+      price: 2150,
+      unit: '750ml Bottle • 42.8% ABV',
+      categoryName: 'Whiskey & Spirits',
+      categorySlug: 'spirits',
+      categoryId: 'cat-spirits',
+      description: 'The legendary taste of the Himalayas aged in oak casks.',
+      isAlcohol: true,
+      alcoholPercentage: 42.8,
+      images: ['https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'spirit-3',
+      name: 'Jack Daniel\'s Tennessee 750ml',
+      nameNe: 'ज्याक ड्यानियल्स नम्बर ७',
+      price: 5400,
+      unit: '750ml Bottle • 40.0% ABV',
+      categoryName: 'Whiskey & Spirits',
+      categorySlug: 'spirits',
+      categoryId: 'cat-spirits',
+      description: 'Charcoal mellowed drop by drop for world renowned sipping quality.',
+      isAlcohol: true,
+      alcoholPercentage: 40.0,
+      images: ['https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'spirit-4',
+      name: '8848 Pure Nepali Vodka 750ml',
+      nameNe: '८८४८ भोड्का',
+      price: 2200,
+      unit: '750ml Bottle • 40.0% ABV',
+      categoryName: 'Whiskey & Spirits',
+      categorySlug: 'spirits',
+      categoryId: 'cat-spirits',
+      description: 'Five times distilled French winter wheat blended with mountain water.',
+      isAlcohol: true,
+      alcoholPercentage: 40.0,
+      images: ['https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&auto=format&fit=crop&q=80'],
+    ),
+
+    // Mixers & Ice
+    ProductModel(
+      id: 'mixer-1',
+      name: 'Pure Tube Ice Bag (2kg Sealed)',
+      nameNe: 'प्योर आइस ब्याग (२ केजी)',
+      price: 120,
+      unit: '2000g Bag • Sealed Food Grade',
+      categoryName: 'Mixers, Chasers & Ice',
+      categorySlug: 'mixers',
+      categoryId: 'cat-mixers',
+      description: 'Hygienically produced food-grade tube ice cubes in double insulated packaging.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'mixer-2',
+      name: 'Red Bull Energy Drink (250ml Can)',
+      nameNe: 'रेड बुल इनर्जी ड्रिंक',
+      price: 190,
+      unit: '250ml Can • Chilled',
+      categoryName: 'Mixers, Chasers & Ice',
+      categorySlug: 'mixers',
+      categoryId: 'cat-mixers',
+      description: 'Vitalizes body and mind for your late night gatherings.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'mixer-3',
+      name: 'Coca-Cola Pet Bottle (2.25L Mega)',
+      nameNe: 'कोकाकोला २.२५ लिटर',
+      price: 220,
+      unit: '2.25L Bottle • Chilled',
+      categoryName: 'Mixers, Chasers & Ice',
+      categorySlug: 'mixers',
+      categoryId: 'cat-mixers',
+      description: 'Mega party size chilled Coca-Cola bottle.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'mixer-4',
+      name: 'Schweppes Tonic Water (330ml Can)',
+      nameNe: 'स्वेप्स टोनिक वाटर',
+      price: 130,
+      unit: '330ml Can • Chilled',
+      categoryName: 'Mixers, Chasers & Ice',
+      categorySlug: 'mixers',
+      categoryId: 'cat-mixers',
+      description: 'Crisp quinine tonic mixer for gin and spirits cocktails.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&auto=format&fit=crop&q=80'],
+    ),
+
+    // Hot Fast Food & Momos
+    ProductModel(
+      id: 'food-1',
+      name: 'Spicy Buff C-Momo (10 pcs Plate)',
+      nameNe: 'पिरो बफ सि-मोमो (१० पिस)',
+      price: 260,
+      unit: '10 pcs • Chef Hot Garlic Sauce',
+      categoryName: 'Hot Fast Food',
+      categorySlug: 'food',
+      categoryId: 'cat-food',
+      description: 'Fresh steamed buff momos wok-tossed in signature fiery Kathmandu chili gravy.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1625398407796-82650a8c135f?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'food-2',
+      name: 'Crispy Fried Chicken Wings (6 pcs)',
+      nameNe: 'क्रिस्पी चिकेन विंग्स (६ पिस)',
+      price: 390,
+      unit: '6 pcs • Herb Dip',
+      categoryName: 'Hot Fast Food',
+      categorySlug: 'food',
+      categoryId: 'cat-food',
+      description: 'Crispy golden fried wings tossed with Nepali Sichuan pepper and spicy dip.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'food-3',
+      name: 'Chicken Steamed Momo (10 pcs Plate)',
+      nameNe: 'चिकेन स्टिम मोमो (१० पिस)',
+      price: 240,
+      unit: '10 pcs • Tomato Achar',
+      categoryName: 'Hot Fast Food',
+      categorySlug: 'food',
+      categoryId: 'cat-food',
+      description: 'Classic Kathmandu steamed chicken dumplings with fresh sesame-tomato chutney.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1625398407796-82650a8c135f?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'food-4',
+      name: 'Chilli Chicken Dry (Chef Special Plate)',
+      nameNe: 'चिल्ली चिकेन ड्राई',
+      price: 380,
+      unit: 'Plate • Wok Fried',
+      categoryName: 'Hot Fast Food',
+      categorySlug: 'food',
+      categoryId: 'cat-food',
+      description: 'Tender chicken cubes wok-fried with bell peppers, onions, soy and hot green chilies.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'food-5',
+      name: 'Pork Sekuwa Plate (Midnight Grill)',
+      nameNe: 'पोर्क सेकुवा प्लेट',
+      price: 450,
+      unit: 'Plate • Marinated & Charcoal Grilled',
+      categoryName: 'Hot Fast Food',
+      categorySlug: 'food',
+      categoryId: 'cat-food',
+      description: 'Traditional Dharan-style seasoned pork sekuwa served with radish pickle and puffed rice.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400&auto=format&fit=crop&q=80'],
+    ),
+    ProductModel(
+      id: 'food-6',
+      name: 'Crispy French Fries with Garlic Dip',
+      nameNe: 'फ्रेन्च फ्राइज गार्लिक सस',
+      price: 180,
+      unit: 'Bowl • Salted & Crispy',
+      categoryName: 'Hot Fast Food',
+      categorySlug: 'food',
+      categoryId: 'cat-food',
+      description: 'Double fried golden potato fries with house-made garlic mayo.',
+      isAlcohol: false,
+      images: ['https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400&auto=format&fit=crop&q=80'],
+    ),
+  ];
 
   Future<void> _loadData() async {
     try {
       final pRes = await _api.dio.get('/products');
       final cRes = await _api.dio.get('/categories');
       if (mounted) {
+        final List<ProductModel> fetched = (pRes.data['products'] as List)
+            .map((p) => ProductModel.fromJson(p))
+            .toList();
+
+        // Merge with curated catalog without duplicating IDs
+        final combined = [...fetched];
+        for (var c in _curatedCatalog) {
+          final exists = combined.any((p) => p.name.toLowerCase() == c.name.toLowerCase() || p.id == c.id);
+          if (!exists) combined.add(c);
+        }
+
         setState(() {
-          _products = (pRes.data['products'] as List)
-              .map((p) => ProductModel.fromJson(p))
-              .toList();
+          _products = combined;
           _categories = cRes.data['categories'] ?? [];
           _loading = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _products = _curatedCatalog;
+          _loading = false;
+        });
+      }
     }
   }
 
-  String get _timeGreeting {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning!';
-    if (hour < 17) return 'Good Afternoon!';
-    return 'Good Evening!';
-  }
-
-  IconData _getCategoryIcon(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('beer') || lower.contains('cider')) return Icons.sports_bar_outlined;
-    if (lower.contains('whisky') || lower.contains('spirit') || lower.contains('rum') || lower.contains('vodka')) {
-      return Icons.liquor_outlined;
-    }
-    if (lower.contains('wine')) return Icons.wine_bar_outlined;
-    if (lower.contains('snack') || lower.contains('food')) return Icons.lunch_dining_outlined;
-    if (lower.contains('beverage') || lower.contains('soft') || lower.contains('juice')) {
-      return Icons.local_drink_outlined;
-    }
-    return Icons.category_outlined;
+  List<ProductModel> _getCategoryProducts(String keyword) {
+    return _products.where((p) {
+      final matchCat = p.categoryName.toLowerCase().contains(keyword.toLowerCase()) ||
+          p.categorySlug.toLowerCase().contains(keyword.toLowerCase());
+      return matchCat;
+    }).toList();
   }
 
   @override
@@ -101,9 +388,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final cart = Provider.of<CartProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
     final orderProv = Provider.of<OrderProvider>(context);
-    final userName = auth.user?.name.isNotEmpty == true ? auth.user!.name : 'Friend';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Filter products by selected category and live search text
+    final userName = auth.user?.name.isNotEmpty == true ? auth.user!.name.split(' ').first : 'Prajina';
+
+    // Active order check for floating tracker pill
+    OrderModel? activeOrder;
+    for (final o in orderProv.orders) {
+      if (o.status != 'delivered' && o.status != 'cancelled') {
+        activeOrder = o;
+        break;
+      }
+    }
+
     final filtered = _products.where((p) {
       final matchesCategory = _selectedCategory.isEmpty ||
           p.categoryId == _selectedCategory ||
@@ -114,199 +411,352 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       return matchesCategory && matchesSearch;
     }).toList();
 
+    final beerProducts = _getCategoryProducts('beer');
+    final spiritProducts = _products.where((p) =>
+      p.categoryName.toLowerCase().contains('whisky') ||
+      p.categoryName.toLowerCase().contains('spirit') ||
+      p.categoryName.toLowerCase().contains('rum') ||
+      p.categoryName.toLowerCase().contains('vodka')
+    ).toList();
+    final mixerProducts = _getCategoryProducts('mixer').isNotEmpty
+        ? _getCategoryProducts('mixer')
+        : _products.where((p) =>
+            p.categoryName.toLowerCase().contains('beverage') ||
+            p.categoryName.toLowerCase().contains('soft') ||
+            p.categoryName.toLowerCase().contains('ice')).toList();
+    final foodProducts = _products.where((p) =>
+      p.categoryName.toLowerCase().contains('snack') ||
+      p.categoryName.toLowerCase().contains('food') ||
+      p.categoryName.toLowerCase().contains('kitchen')
+    ).toList();
+
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldBg,
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       body: SafeArea(
         child: _loading
-            ? const ValleyLoaderScreen(label: "Loading tonight's menu...")
-            : ValleyRefresh(
+            ? const ValleyLoaderScreen(label: "Loading tonight's catalog...")
+            : RefreshIndicator(
+                color: AppTheme.primaryOrange,
                 onRefresh: _loadData,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top Bar: Menu Button, Deliver To Dropdown, Dark Navy Cart Button
+                      // 1. NIGHT EXPRESS OPERATING PILL (8 PM - 4 AM)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppTheme.successGreen,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.successGreen.withOpacity(0.6),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            RichText(
+                              text: TextSpan(
+                                style: AppTheme.bodyFont(
+                                  fontSize: 11,
+                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                                ),
+                                children: const [
+                                  TextSpan(text: 'Kathmandu Night Express • '),
+                                  TextSpan(
+                                    text: '8:00 PM – 4:00 AM',
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryOrange),
+                                  ),
+                                  TextSpan(text: ' • Avg 24 mins'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 2. USER HEADER (AVATAR, NAME, NOTIFICATION BELL, PROFILE)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Profile / Menu Icon Button
                           GestureDetector(
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(builder: (_) => const ProfileScreen()),
                               );
                             },
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.inputBg,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.person_outline_rounded, color: AppTheme.textMain, size: 22),
-                            ),
-                          ),
-
-                          // Deliver to Map selector (taps into Map Address Picker)
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: InkWell(
-                                onTap: () async {
-                                  final SelectedLocation? res = await Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => MapAddressPickerScreen(
-                                        initialLat: _deliveryLat,
-                                        initialLon: _deliveryLon,
-                                        initialAddress: _currentDeliveryAddress,
-                                      ),
-                                    ),
-                                  );
-                                  if (res != null) {
-                                    setState(() {
-                                      _currentDeliveryAddress = res.addressText;
-                                      _deliveryLat = res.latitude;
-                                      _deliveryLon = res.longitude;
-                                    });
-                                  }
-                                },
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'DELIVER TO',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.accent,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                        SizedBox(width: 3),
-                                        Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: AppTheme.accent),
-                                      ],
-                                    ),
-                                    Text(
-                                      _currentDeliveryAddress,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.textMain,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Dark Navy Cart Button with Orange Badge (matching Figma)
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const CartScreen()),
-                              );
-                            },
-                            child: Stack(
-                              clipBehavior: Clip.none,
+                            child: Row(
                               children: [
                                 Container(
                                   width: 44,
                                   height: 44,
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.darkNavy,
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.shopping_bag_outlined,
-                                    color: AppTheme.background,
-                                    size: 20,
-                                  ),
-                                ),
-                                if (cart.itemCount > 0)
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.accent,
-                                        shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      colors: [AppTheme.primaryOrange, AppTheme.primaryDeep],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.primaryGlow,
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
                                       ),
-                                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                                      child: Center(
-                                        child: Text(
-                                          '${cart.itemCount}',
-                                          style: const TextStyle(
-                                            color: AppTheme.background,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
+                                    ],
+                                  ),
+                                  child: auth.user?.avatarUrl != null && auth.user!.avatarUrl!.isNotEmpty
+                                      ? ClipOval(
+                                          child: Image.network(
+                                            auth.user!.avatarUrl!,
+                                            width: 44,
+                                            height: 44,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Center(
+                                              child: Text(
+                                                userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
+                                                style: AppTheme.displayFont(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 18,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Center(
+                                          child: Text(
+                                            userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
+                                            style: AppTheme.displayFont(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 18,
+                                            ),
                                           ),
                                         ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Hello, $userName',
+                                      style: AppTheme.displayFont(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                                       ),
                                     ),
-                                  ),
+                                    Text(
+                                      'Craving midnight drinks & snacks?',
+                                      style: AppTheme.bodyFont(
+                                        fontSize: 11,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
 
-                      // Greeting Text: "Hey [Name], Good Afternoon!"
-                      RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'Hey $userName, ',
-                              style: const TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 16,
-                                color: AppTheme.textMuted,
+                          Row(
+                            children: [
+                              // Notification Bell with Pulse Dot
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                                  );
+                                },
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                                    ),
+                                  ),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.notifications_none_rounded,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                        size: 20,
+                                      ),
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: Container(
+                                          width: 7,
+                                          height: 7,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryOrange,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppTheme.primaryOrange.withOpacity(0.8),
+                                                blurRadius: 4,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                            TextSpan(
-                              text: _timeGreeting,
-                              style: const TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textMain,
+                              const SizedBox(width: 8),
+
+                              // Profile Settings Button
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                                  );
+                                },
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.person_outline_rounded,
+                                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                    size: 20,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
 
-                      // Search & Filter Bar (matching Figma input container)
+                      // 3. LOCATION PICKER BAR (DELIVER TO)
+                      InkWell(
+                        onTap: () async {
+                          final SelectedLocation? res = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MapAddressPickerScreen(
+                                initialLat: _deliveryLat,
+                                initialLon: _deliveryLon,
+                                initialAddress: _currentDeliveryAddress,
+                              ),
+                            ),
+                          );
+                          if (res != null) {
+                            setState(() {
+                              _currentDeliveryAddress = res.addressText;
+                              _deliveryLat = res.latitude;
+                              _deliveryLon = res.longitude;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.location_on_rounded, color: AppTheme.primaryOrange, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Deliver to: ',
+                                style: AppTheme.bodyFont(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  _currentDeliveryAddress,
+                                  style: AppTheme.bodyFont(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppTheme.primaryOrange),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 4. SEARCH PILL BAR
                       Container(
                         decoration: BoxDecoration(
-                          color: AppTheme.inputBg,
+                          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
                           borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: TextField(
                           controller: _searchController,
                           onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                          style: AppTheme.bodyFont(
+                            fontSize: 13,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                          ),
                           decoration: InputDecoration(
-                            hintText: 'Search drinks, snacks, dishes...',
-                            prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textMuted, size: 22),
+                            hintText: 'Search chilled beer, single malt, C-momos, ice bags...',
+                            hintStyle: AppTheme.bodyFont(
+                              fontSize: 12,
+                              color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                            ),
+                            prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.primaryOrange, size: 20),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
-                                    icon: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textMuted),
+                                    icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
                                     onPressed: () {
                                       _searchController.clear();
                                       setState(() => _searchQuery = '');
                                     },
                                   )
-                                : const Icon(Icons.tune_rounded, color: AppTheme.textMuted, size: 20),
+                                : null,
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -314,162 +764,540 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
 
-                      // "All Categories" Header & Horizontal Chips
+                      // ACTIVE ORDER FLOATING ALERT (IF ANY IN PROGRESS)
+                      if (activeOrder != null) ...[
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const OrderTrackingScreen()),
+                            );
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primaryOrange.withOpacity(0.12),
+                                  AppTheme.navyBrand.withOpacity(0.08),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppTheme.primaryOrange.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryOrange,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.delivery_dining_rounded, color: Colors.white, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Order #${activeOrder.orderNo} in progress',
+                                        style: AppTheme.displayFont(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Rider dispatched • Tap for live GPS tracking',
+                                        style: AppTheme.bodyFont(fontSize: 11, color: AppTheme.primaryOrange),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded, color: AppTheme.primaryOrange),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // 5. CATEGORY GRID (CARDS WITH THUMBNAILS)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'All Categories',
-                            style: TextStyle(
+                          Text(
+                            'Categories',
+                            style: AppTheme.displayFont(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textMain,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => setState(() => _selectedCategory = ''),
-                            child: const Text(
-                              'See All >',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.accent,
+                          if (_selectedCategory.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => setState(() => _selectedCategory = ''),
+                              child: Text(
+                                'Clear filter',
+                                style: AppTheme.bodyFont(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primaryOrange,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
 
-                      // Horizontal Categories List
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            // "All" chip
-                            _buildCategoryChip(
-                              name: 'All',
+                            _buildQuickCategoryCard(
+                              title: 'All Items',
                               icon: Icons.grid_view_rounded,
                               isSelected: _selectedCategory.isEmpty,
                               onTap: () => setState(() => _selectedCategory = ''),
+                              isDark: isDark,
                             ),
                             const SizedBox(width: 10),
-                            ..._categories.map((c) {
-                              final catId = c['_id'] ?? c['slug'] ?? '';
-                              final name = c['name'] ?? '';
-                              final isSel = _selectedCategory == catId || _selectedCategory == c['slug'];
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 10),
-                                child: _buildCategoryChip(
-                                  name: name,
-                                  icon: _getCategoryIcon(name),
-                                  isSelected: isSel,
-                                  onTap: () => setState(() => _selectedCategory = catId),
-                                ),
-                              );
-                            }),
+                            _buildQuickCategoryCard(
+                              title: 'Chilled Beers',
+                              icon: Icons.sports_bar_rounded,
+                              isSelected: _selectedCategory == 'beers' || _selectedCategory.contains('beer'),
+                              onTap: () => setState(() => _selectedCategory = 'beers'),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 10),
+                            _buildQuickCategoryCard(
+                              title: 'Spirits & Rum',
+                              icon: Icons.liquor_rounded,
+                              isSelected: _selectedCategory == 'spirits' || _selectedCategory.contains('spirit'),
+                              onTap: () => setState(() => _selectedCategory = 'spirits'),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 10),
+                            _buildQuickCategoryCard(
+                              title: 'Mixers & Ice',
+                              icon: Icons.ac_unit_rounded,
+                              isSelected: _selectedCategory == 'mixers' || _selectedCategory.contains('mixer'),
+                              onTap: () => setState(() => _selectedCategory = 'mixers'),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 10),
+                            _buildQuickCategoryCard(
+                              title: 'Hot Fast Food',
+                              icon: Icons.lunch_dining_rounded,
+                              isSelected: _selectedCategory == 'food' || _selectedCategory.contains('food'),
+                              onTap: () => setState(() => _selectedCategory = 'food'),
+                              isDark: isDark,
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Promotional "Hurry Offers!" Card (matching Figma)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accent,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Row(
+                      // 6. OFFERS CAROUSEL SLIDER (MIDNIGHT SPECIAL & PARTY PACK)
+                      SizedBox(
+                        height: 140,
+                        child: PageView(
+                          controller: _offersPageController,
+                          onPageChanged: (idx) => setState(() => _currentOfferSlide = idx),
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            // Slide 1: Midnight Special Up to 30%
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFF4B26), Color(0xFFE03612)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryOrange.withOpacity(0.35),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.background,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.bolt_rounded,
-                                            size: 11, color: AppTheme.accent),
-                                        SizedBox(width: 3),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'MIDNIGHT SPECIAL',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
                                         Text(
-                                          'KATHMANDU 30-MIN EXPRESS',
-                                          style: TextStyle(
-                                            color: AppTheme.accent,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 9,
-                                            letterSpacing: 0.5,
+                                          'Get Special Offers\nUp to 30% OFF',
+                                          style: AppTheme.displayFont(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'Claim Deal >',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.primaryOrange,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    'Hurry Offers!\nGet 15% Discount',
-                                    style: TextStyle(
-                                      color: AppTheme.background,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'Use promo code VALLEYFIRST at checkout',
-                                    style: TextStyle(
-                                      color: Color(0xFFFFECE0),
-                                      fontSize: 11,
-                                    ),
-                                  ),
+                                  const Icon(Icons.local_pizza_rounded, size: 76, color: Color(0x33FFFFFF)),
                                 ],
                               ),
                             ),
+
+                            // Slide 2: Party Pack Deal
                             Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(
-                                color: AppTheme.background,
-                                shape: BoxShape.circle,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF003893), Color(0xFF0284C7)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.navyBrand.withOpacity(0.35),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
-                              child: const Icon(
-                                Icons.local_offer_rounded,
-                                color: AppTheme.accent,
-                                size: 28,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'PARTY PACK DEAL',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '4x Chilled Beer + Wings\nRs. 1,499 Flat',
+                                          style: AppTheme.displayFont(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'Get Bundle >',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.navyBrand,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.sports_bar_rounded, size: 76, color: Color(0x33FFFFFF)),
+                                ],
+                              ),
+                            ),
+
+                            // Slide 3: Weekend Chiller
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0284C7), Color(0xFF0F172A)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.chilledIce.withOpacity(0.35),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'ICE BAG COMPLIMENTARY',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Free 2kg Tube Ice Bag\nOn orders above Rs. 2,000',
+                                          style: AppTheme.displayFont(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'Code: FREEICE',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.chilledIce,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.ac_unit_rounded, size: 76, color: Color(0x33FFFFFF)),
+                                ],
+                              ),
+                            ),
+
+                            // Slide 4: Momo Madness
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFE11D48), Color(0xFFFF4B26)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withOpacity(0.35),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'MOMO MADNESS COMBO',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Buy 2 Plates C-Momo\nGet Coke 500ml Free',
+                                          style: AppTheme.displayFont(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'Order Combo >',
+                                            style: AppTheme.displayFont(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.fastfood_rounded, size: 76, color: Color(0x33FFFFFF)),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 8),
 
-                      // "Popular Kathmandu Catalog" 2-Column Grid
+                      // Carousel Dots (4 dots)
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            'Popular Beverages & Snacks',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textMain,
-                            ),
-                          ),
-                          Text(
-                            '${filtered.length} Items',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
+                          _buildDot(0, _currentOfferSlide),
+                          const SizedBox(width: 6),
+                          _buildDot(1, _currentOfferSlide),
+                          const SizedBox(width: 6),
+                          _buildDot(2, _currentOfferSlide),
+                          const SizedBox(width: 6),
+                          _buildDot(3, _currentOfferSlide),
                         ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 7. BEERS & CIDERS HORIZONTAL SLIDER
+                      if (_searchQuery.isEmpty && _selectedCategory.isEmpty && beerProducts.isNotEmpty) ...[
+                        _buildSectionHeader(
+                          title: 'Beers & Ciders',
+                          icon: Icons.sports_bar_rounded,
+                          count: beerProducts.length,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 220,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: beerProducts.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (ctx, idx) => _buildHorizontalProductCard(beerProducts[idx], cart, isDark),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // 8. WHISKEY & SPIRITS HORIZONTAL SLIDER
+                      if (_searchQuery.isEmpty && _selectedCategory.isEmpty && spiritProducts.isNotEmpty) ...[
+                        _buildSectionHeader(
+                          title: 'Whiskey & Spirits',
+                          icon: Icons.liquor_rounded,
+                          count: spiritProducts.length,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 220,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: spiritProducts.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (ctx, idx) => _buildHorizontalProductCard(spiritProducts[idx], cart, isDark),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // 9. MIXERS, CHASERS & ICE CUBES
+                      if (_searchQuery.isEmpty && _selectedCategory.isEmpty && mixerProducts.isNotEmpty) ...[
+                        _buildSectionHeader(
+                          title: 'Mixers, Chasers & Ice Bags',
+                          icon: Icons.ac_unit_rounded,
+                          count: mixerProducts.length,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 220,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: mixerProducts.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (ctx, idx) => _buildHorizontalProductCard(mixerProducts[idx], cart, isDark),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // 10. HOT KITCHEN / ALL CATALOG (2-COLUMN GRID)
+                      _buildSectionHeader(
+                        title: _selectedCategory.isNotEmpty
+                            ? 'Selected Products'
+                            : (_searchQuery.isNotEmpty ? 'Search Results' : 'Hot Kitchen & All Items'),
+                        icon: Icons.fastfood_rounded,
+                        count: filtered.length,
+                        isDark: isDark,
                       ),
                       const SizedBox(height: 14),
 
@@ -479,13 +1307,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               alignment: Alignment.center,
                               child: Column(
                                 children: [
-                                  const Icon(Icons.search_off_rounded, size: 48, color: AppTheme.textSubtle),
+                                  const Icon(Icons.search_off_rounded, size: 48, color: Colors.grey),
                                   const SizedBox(height: 8),
                                   Text(
                                     _searchQuery.isNotEmpty
                                         ? 'No products match "$_searchQuery"'
-                                        : 'No products in this category.',
-                                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                                        : 'No products in this section.',
+                                    style: AppTheme.bodyFont(color: Colors.grey, fontSize: 13),
                                   ),
                                 ],
                               ),
@@ -501,55 +1329,24 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               ),
                               itemCount: filtered.length,
                               itemBuilder: (ctx, idx) {
-                                final p = filtered[idx];
-                                return _buildProductCard(p, cart);
+                                return _buildGridProductCard(filtered[idx], cart, isDark);
                               },
                             ),
-                      const SizedBox(height: 80), // Padding for bottom nav/floating bar
+
+                      const SizedBox(height: 90), // Bottom navigation spacing
                     ],
                   ),
                 ),
               ),
       ),
 
-      // Direct Customer Support Chat FAB
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.accent,
+      // FLOATING CHAT BUTTON
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppTheme.primaryOrange,
         elevation: 4,
-        icon: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 18),
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Chat with Admin',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-            Consumer<ChatUnreadProvider>(
-              builder: (_, unread, __) => unread.total == 0
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: UnreadBadge(
-                        count: unread.total,
-                        background: Colors.white,
-                        foreground: AppTheme.accent,
-                      ),
-                    ),
-            ),
-          ],
-        ),
+        shape: const CircleBorder(),
+        tooltip: 'Chat with Dispatch Hub',
         onPressed: () {
-          final orderProv = Provider.of<OrderProvider>(context, listen: false);
-          OrderModel? activeOrder;
-          for (final o in orderProv.orders) {
-            if (o.status != 'delivered' && o.status != 'cancelled') {
-              activeOrder = o;
-              break;
-            }
-          }
-          if (activeOrder == null && orderProv.orders.isNotEmpty) {
-            activeOrder = orderProv.orders.first;
-          }
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => ChatScreen(
@@ -559,13 +1356,45 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           );
         },
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 22),
+            Consumer<ChatUnreadProvider>(
+              builder: (_, unread, __) => unread.total == 0
+                  ? const SizedBox.shrink()
+                  : Positioned(
+                      top: -6,
+                      right: -6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.alertRed,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        child: Text(
+                          unread.total > 9 ? '9+' : '${unread.total}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
 
-      // Bottom Navigation Bar & Floating Basket Bar
+      // BOTTOM NAVIGATION & STICKY CART CAPSULE
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Floating Cart Basket Bar
+          // STICKY FLOATING BASKET CAPSULE (MATCHING PROTOTYPE)
           if (cart.items.isNotEmpty)
             GestureDetector(
               onTap: () {
@@ -577,54 +1406,79 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.accent,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isDark ? const Color(0xFF11141D) : const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: const BoxDecoration(
-                        color: AppTheme.background,
+                        color: AppTheme.primaryOrange,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.shopping_bag_rounded, color: AppTheme.accent, size: 16),
+                      child: const Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 16),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '${cart.itemCount} item(s) in basket',
-                            style: const TextStyle(color: AppTheme.background, fontSize: 12, fontWeight: FontWeight.w600),
+                            '${cart.itemCount} Item${cart.itemCount > 1 ? 's' : ''} in Basket',
+                            style: AppTheme.displayFont(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           Text(
-                            'Subtotal: Rs. ${cart.subtotal}',
-                            style: const TextStyle(color: Color(0xFFFFECE0), fontSize: 10),
+                            'Kathmandu late night dispatch ready',
+                            style: AppTheme.bodyFont(color: const Color(0xFF94A3B8), fontSize: 10),
                           ),
                         ],
                       ),
                     ),
-                    const Text(
-                      'View Basket >',
-                      style: TextStyle(
-                        color: AppTheme.background,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                    Text(
+                      'Rs. ${cart.subtotal}',
+                      style: AppTheme.displayFont(
+                        color: AppTheme.primaryOrange,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.chevron_right_rounded, color: Colors.black, size: 18),
                     ),
                   ],
                 ),
               ),
             ),
 
-          // Bottom Bar Navigation
+          // BOTTOM NAV BAR
           Container(
-            decoration: const BoxDecoration(
-              color: AppTheme.background,
-              border: Border(top: BorderSide(color: AppTheme.border)),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                ),
+              ),
             ),
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -636,6 +1490,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   label: 'Home',
                   isSelected: _currentNavIndex == 0,
                   onTap: () => setState(() => _currentNavIndex = 0),
+                  isDark: isDark,
                 ),
                 _buildNavItem(
                   index: 1,
@@ -648,6 +1503,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       MaterialPageRoute(builder: (_) => const MyOrdersScreen()),
                     );
                   },
+                  isDark: isDark,
                 ),
                 _buildNavItem(
                   index: 2,
@@ -661,6 +1517,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       MaterialPageRoute(builder: (_) => const CartScreen()),
                     );
                   },
+                  isDark: isDark,
                 ),
                 _buildNavItem(
                   index: 3,
@@ -672,6 +1529,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       MaterialPageRoute(builder: (_) => const ProfileScreen()),
                     );
                   },
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -681,23 +1539,47 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _buildCategoryChip({
-    required String name,
+  Widget _buildDot(int index, int current) {
+    final active = index == current;
+    return Container(
+      width: active ? 18 : 6,
+      height: 6,
+      decoration: BoxDecoration(
+        color: active ? AppTheme.primaryOrange : Colors.grey.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(99),
+      ),
+    );
+  }
+
+  Widget _buildQuickCategoryCard({
+    required String title,
     required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
+    required bool isDark,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.accent : AppTheme.background,
+          color: isSelected
+              ? AppTheme.primaryOrange
+              : (isDark ? AppTheme.darkSurfaceCard : Colors.white),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppTheme.accent : AppTheme.border,
-            width: 1.2,
+            color: isSelected
+                ? AppTheme.primaryOrange
+                : (isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
           ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: AppTheme.primaryOrange.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -705,15 +1587,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             Icon(
               icon,
               size: 16,
-              color: isSelected ? AppTheme.background : AppTheme.textMuted,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
-              name,
-              style: TextStyle(
+              title,
+              style: AppTheme.displayFont(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? AppTheme.background : AppTheme.textMain,
+                fontWeight: FontWeight.w700,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
               ),
             ),
           ],
@@ -722,7 +1608,171 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _buildProductCard(ProductModel p, CartProvider cart) {
+  Widget _buildSectionHeader({
+    required String title,
+    required IconData icon,
+    required int count,
+    required bool isDark,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: AppTheme.primaryOrange),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: AppTheme.displayFont(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          'See All ($count)',
+          style: AppTheme.bodyFont(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.primaryOrange,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHorizontalProductCard(ProductModel p, CartProvider cart, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+        );
+      },
+      child: Container(
+        width: 145,
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+          ),
+        ),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 105,
+                    width: double.infinity,
+                    color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                    child: ValleyProductImage(
+                      imageUrl: p.images.isNotEmpty ? p.images.first : null,
+                      height: 105,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryOrange,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      p.isAlcohol ? '18+' : '-10%',
+                      style: AppTheme.displayFont(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Builder(
+                    builder: (btnCtx) => GestureDetector(
+                      onTap: () {
+                        FlyToCart.runFromContext(sourceContext: btnCtx, targetKey: _cartTargetKey);
+                        cart.addItem(p);
+                      },
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryOrange,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryOrange.withOpacity(0.4),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.add, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              p.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.displayFont(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Text(
+                  'Rs. ${p.price}',
+                  style: AppTheme.displayFont(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryOrange,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Rs. ${(p.price * 1.1).round()}',
+                  style: AppTheme.bodyFont(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ).copyWith(decoration: TextDecoration.lineThrough),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              p.unit.isNotEmpty ? p.unit : '650ml Bottle',
+              style: AppTheme.bodyFont(
+                fontSize: 10,
+                color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridProductCard(ProductModel p, CartProvider cart, bool isDark) {
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
@@ -731,26 +1781,27 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.background,
+          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+          ),
         ),
         padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Image Container with badges
             Stack(
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    height: 100,
+                    height: 105,
                     width: double.infinity,
-                    color: AppTheme.inputBg,
+                    color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
                     child: ValleyProductImage(
                       imageUrl: p.images.isNotEmpty ? p.images.first : null,
-                      height: 100,
+                      height: 105,
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -762,15 +1813,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.accent,
-                        borderRadius: BorderRadius.circular(4),
+                        color: AppTheme.primaryOrange,
+                        borderRadius: BorderRadius.circular(5),
                       ),
-                      child: const Text(
+                      child: Text(
                         '18+ Alcohol',
-                        style: TextStyle(
-                          color: AppTheme.background,
+                        style: AppTheme.displayFont(
+                          color: Colors.white,
                           fontSize: 8,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -778,8 +1829,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ],
             ),
             const SizedBox(height: 8),
-
-            // Product Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -788,10 +1837,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     p.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
+                    style: AppTheme.displayFont(
                       fontSize: 12,
-                      color: AppTheme.textMain,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                     ),
                   ),
                   if (p.nameNe.isNotEmpty) ...[
@@ -800,64 +1849,70 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       p.nameNe,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                      style: AppTheme.bodyFont(
+                        fontSize: 10,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 2),
                   Text(
-                    p.unit,
-                    style: const TextStyle(fontSize: 10, color: AppTheme.textSubtle),
+                    p.unit.isNotEmpty ? p.unit : 'Standard Pack',
+                    style: AppTheme.bodyFont(
+                      fontSize: 10,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                    ),
                   ),
                 ],
               ),
             ),
-
-            // Bottom Row: Price & Circular Orange '+' Add Button (matching Figma)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Rs. ${p.price}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: AppTheme.textMain,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rs. ${p.price}',
+                      style: AppTheme.displayFont(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryOrange,
+                      ),
+                    ),
+                    Text(
+                      'Rs. ${(p.price * 1.1).round()}',
+                      style: AppTheme.bodyFont(
+                        fontSize: 10,
+                        color: Colors.grey,
+                      ).copyWith(decoration: TextDecoration.lineThrough),
+                    ),
+                  ],
                 ),
                 Builder(
                   builder: (buttonContext) => GestureDetector(
-                  onTap: () {
-                    // Fly before adding, so the marker starts from the button
-                    // while it is still on screen
-                    FlyToCart.runFromContext(
-                      sourceContext: buttonContext,
-                      targetKey: _cartTargetKey,
-                    );
-                    cart.addItem(p);
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(
-                          content: Text('${p.name} added to basket'),
-                          duration: const Duration(seconds: 1),
-                          backgroundColor: AppTheme.darkNavy,
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                    onTap: () {
+                      FlyToCart.runFromContext(
+                        sourceContext: buttonContext,
+                        targetKey: _cartTargetKey,
                       );
-                  },
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.accent,
-                      shape: BoxShape.circle,
+                      cart.addItem(p);
+                    },
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryOrange,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryOrange.withOpacity(0.35),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 20),
                     ),
-                    child: const Icon(
-                      Icons.add,
-                      color: AppTheme.background,
-                      size: 20,
-                    ),
-                  ),
                   ),
                 ),
               ],
@@ -874,6 +1929,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    required bool isDark,
     int badgeCount = 0,
     Key? iconKey,
   }) {
@@ -890,7 +1946,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Icon(
                 icon,
                 size: 22,
-                color: isSelected ? AppTheme.accent : AppTheme.textMuted,
+                color: isSelected
+                    ? AppTheme.primaryOrange
+                    : (isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted),
               ),
               if (badgeCount > 0)
                 Positioned(
@@ -899,7 +1957,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(
-                      color: AppTheme.accent,
+                      color: AppTheme.primaryOrange,
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
@@ -907,9 +1965,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       child: Text(
                         '$badgeCount',
                         style: const TextStyle(
-                          color: AppTheme.background,
+                          color: Colors.white,
                           fontSize: 8,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -920,10 +1978,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
+            style: AppTheme.displayFont(
               fontSize: 10,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? AppTheme.accent : AppTheme.textMuted,
+              color: isSelected
+                  ? AppTheme.primaryOrange
+                  : (isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted),
             ),
           ),
         ],

@@ -20,10 +20,16 @@ class ChatUnreadProvider extends ChangeNotifier {
       threadId == null ? 0 : (_threads[threadId] ?? 0);
 
   /// Starts listening for live message events. Safe to call more than once.
-  void start() {
+  void start([String? userId]) {
     refresh();
+    if (userId != null) {
+      _socket.joinUser(userId);
+    }
     if (_listening) return;
     _socket.connect();
+    if (userId != null) {
+      _socket.joinUser(userId);
+    }
     _socket.socket?.on('chat:message', (_) => refresh());
     _socket.socket?.on('chat:read', (_) => refresh());
     _listening = true;

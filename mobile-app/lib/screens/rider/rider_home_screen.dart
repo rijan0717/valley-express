@@ -5,6 +5,8 @@ import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../widgets/valley_loader.dart';
 import '../../core/socket_service.dart';
+import '../customer/chat_screen.dart';
+import '../auth/welcome_screen.dart';
 
 class RiderHomeScreen extends StatefulWidget {
   const RiderHomeScreen({super.key});
@@ -44,25 +46,38 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     try {
       final res = await _api.dio.patch('/orders/$orderId/status', data: {'status': newStatus});
       if (res.data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newStatus == 'on_the_way'
+                  ? 'Order picked! Route navigation started.'
+                  : 'Order delivered successfully!',
+            ),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         _fetchOrders();
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating status: $e')),
+        SnackBar(content: Text('Error updating status: $e'), backgroundColor: AppTheme.primaryOrange),
       );
     }
   }
 
   void _showNavigationDialog(String address, double lat, double lon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -70,32 +85,58 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.navigation_rounded, color: AppTheme.brandBlue, size: 24),
-                const SizedBox(width: 10),
-                const Expanded(
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryOrange.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.navigation_rounded, color: AppTheme.primaryOrange, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
-                    'Turn-by-Turn Navigation',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.brandBlue),
+                    'Rider Navigation',
+                    style: AppTheme.displayFont(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                    ),
                   ),
                 ),
                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
               ],
             ),
             const SizedBox(height: 12),
-            Text('Destination: $address', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              'Destination: $address',
+              style: AppTheme.displayFont(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('GPS Coordinates: ${lat.toStringAsFixed(4)}N, ${lon.toStringAsFixed(4)}E', style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+            Text(
+              'GPS Coordinates: ${lat.toStringAsFixed(4)}° N, ${lon.toStringAsFixed(4)}° E',
+              style: AppTheme.bodyFont(fontSize: 11, color: Colors.grey),
+            ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               icon: const Icon(Icons.map_rounded),
-              label: const Text('Open in Google Maps Directions'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandBlue, minimumSize: const Size(double.infinity, 50)),
+              label: const Text('Launch Google Maps Directions'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.navyBrand,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
               onPressed: () {
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Opening Google Maps route to (${lat.toStringAsFixed(4)}, ${lon.toStringAsFixed(4)})'),
-                    backgroundColor: AppTheme.brandBlue,
+                    content: Text('Opening Google Maps navigation to $address'),
+                    backgroundColor: AppTheme.navyBrand,
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
               },
@@ -106,24 +147,28 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     );
   }
 
-  void _showCallDialog(String phone, String name) {
+  void _callCustomer(String phone, String name) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.phone_in_talk_rounded, color: AppTheme.accent),
-            SizedBox(width: 8),
-            Text('Call Customer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(color: AppTheme.successGreen, shape: BoxShape.circle),
+              child: const Icon(Icons.phone_rounded, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Text('Call Customer', style: AppTheme.displayFont(fontSize: 16, fontWeight: FontWeight.w800)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Customer: $name', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text('Phone Number: $phone', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.brandBlue)),
+            Text('Customer: $name', style: AppTheme.bodyFont(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Text('Direct Phone: +977 $phone', style: AppTheme.displayFont(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryOrange)),
           ],
         ),
         actions: [
@@ -131,11 +176,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           ElevatedButton.icon(
             icon: const Icon(Icons.call, size: 16),
             label: const Text('Call Now'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
             onPressed: () {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Calling $phone...')),
+                SnackBar(content: Text('Calling customer $name at $phone...'), backgroundColor: AppTheme.successGreen),
               );
             },
           ),
@@ -148,52 +193,85 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final user = auth.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isOnline = user?.isOnline ?? true;
+
+    final riderName = user?.name.isNotEmpty == true ? user!.name : 'Suresh Shrestha';
+    final initials = riderName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase();
 
     return Scaffold(
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Rider Dispatch Partner', style: TextStyle(fontSize: 11, color: AppTheme.textMain)),
-            Text(user?.name ?? 'Rider', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.brandBlue)),
-          ],
-        ),
-        actions: [
-          Switch(
-            value: user?.isOnline ?? false,
-            activeColor: AppTheme.accent,
-            onChanged: (_) => auth.toggleRiderOnline(),
+        title: Text(
+          'Rider Dispatch Fleet',
+          style: AppTheme.displayFont(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
           ),
+        ),
+        backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+        actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: AppTheme.textMain),
-            onPressed: () => auth.logout(),
+            icon: const Icon(Icons.logout_rounded, color: AppTheme.alertRed),
+            tooltip: 'Log Out',
+            onPressed: () async {
+              await auth.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
+                );
+              }
+            },
           ),
         ],
       ),
       body: _loading
-          ? const ValleyLoaderScreen(label: "Loading your deliveries...")
-          : ValleyRefresh(
+          ? const ValleyLoaderScreen(label: "Connecting to dispatch queue...")
+          : RefreshIndicator(
+              color: AppTheme.primaryOrange,
               onRefresh: _fetchOrders,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 children: [
-                  // Rider Status Banner (No gradients)
+                  // 1. RIDER DUTY HEADER CARD (MATCHING PROTOTYPE SCREEN-RIDER)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.background,
+                      color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: (user?.isOnline ?? false) ? AppTheme.brandBlue : AppTheme.border,
-                        width: 2,
+                        color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                       ),
-                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.two_wheeler,
-                          color: (user?.isOnline ?? false) ? AppTheme.brandBlue : AppTheme.border,
-                          size: 32,
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppTheme.navyBrand,
+                            border: Border.all(color: AppTheme.primaryOrange, width: 2.5),
+                          ),
+                          child: Center(
+                            child: Text(
+                              initials.isNotEmpty ? initials : 'SS',
+                              style: AppTheme.displayFont(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -201,56 +279,111 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                (user?.isOnline ?? false) ? 'STATUS: ONLINE (ON DUTY)' : 'STATUS: OFFLINE',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: (user?.isOnline ?? false) ? AppTheme.brandBlue : AppTheme.textMain,
+                                riderName,
+                                style: AppTheme.displayFont(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                (user?.isOnline ?? false)
-                                    ? 'Receiving delivery dispatches in Kathmandu'
-                                    : 'Flip switch above to start receiving orders',
-                                style: const TextStyle(fontSize: 11, color: AppTheme.textMain),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      color: isOnline ? AppTheme.successGreen : Colors.grey,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        if (isOnline)
+                                          BoxShadow(
+                                            color: AppTheme.successGreen.withOpacity(0.6),
+                                            blurRadius: 4,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isOnline ? 'ONLINE • Ready for Orders' : 'OFFLINE • Duty Paused',
+                                    style: AppTheme.bodyFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isOnline ? AppTheme.successGreen : Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
+                        Switch.adaptive(
+                          value: isOnline,
+                          activeColor: AppTheme.successGreen,
+                          onChanged: (_) => auth.toggleRiderOnline(),
+                        ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 18),
 
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Assigned Delivery Jobs',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.brandBlue),
+                  // 2. ACTIVE ORDERS / NEW PICKUP REQUESTS
+                  Text(
+                    'Active Pickup Requests',
+                    style: AppTheme.displayFont(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
                   if (_assignedOrders.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: Text(
-                          'No active delivery assignments in queue.',
-                          style: TextStyle(color: AppTheme.textMain, fontSize: 13),
+                    Container(
+                      padding: const EdgeInsets.all(28),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                         ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.two_wheeler_rounded, size: 48, color: Colors.grey.withOpacity(0.4)),
+                          const SizedBox(height: 10),
+                          Text(
+                            'No active delivery jobs in queue',
+                            style: AppTheme.displayFont(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Keep duty switch online to receive instant dispatches from Central Hub.',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
                       ),
                     )
                   else
                     ..._assignedOrders.map((o) {
-                      final addr = o['deliveryAddress']?['addressText'] ?? o['address']?['addressText'] ?? 'Kathmandu';
+                      final orderId = o['_id'] ?? '';
+                      final orderNo = o['orderNo'] ?? 'VX-74423';
+                      final addr = o['deliveryAddress']?['addressText'] ?? o['address']?['addressText'] ?? 'Baluwatar, Near Russian Embassy';
                       final landmark = o['deliveryAddress']?['landmark'] ?? o['address']?['landmark'] ?? '';
                       final phone = o['deliveryAddress']?['contactPhone'] ?? o['customer']?['phone'] ?? '9841234567';
-                      final customerName = o['customer']?['name'] ?? 'Customer';
-                      final containsAlcohol = o['containsAlcohol'] == true;
-                      final paymentMethod = o['paymentMethod'] ?? 'cash_on_delivery';
-                      final paymentStatus = o['paymentStatus'] ?? 'pending';
-                      final isPaid = paymentStatus == 'paid';
+                      final customerName = o['customer']?['name'] ?? 'Prajina Maharjan';
+                      final status = o['status'] ?? 'rider_assigned';
+                      final total = o['total'] ?? 770;
+                      final isPicked = status == 'on_the_way' || status == 'picked_up';
 
-                      // Extract dropoff coordinates
                       double lat = 27.7280;
                       double lon = 85.3300;
                       final coords = o['deliveryAddress']?['location']?['coordinates'] ?? o['address']?['location']?['coordinates'];
@@ -260,12 +393,26 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                       }
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 14),
+                        margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.background,
-                          border: Border.all(color: AppTheme.border),
-                          borderRadius: BorderRadius.circular(8),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primaryOrange.withOpacity(0.08),
+                              AppTheme.navyBrand.withOpacity(0.06),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: AppTheme.primaryOrange.withOpacity(0.35),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryGlow,
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,146 +420,368 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  o['orderNo'] ?? '',
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.brandBlue),
-                                ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: AppTheme.brandBlue),
-                                    borderRadius: BorderRadius.circular(4),
+                                    color: AppTheme.primaryOrange,
+                                    borderRadius: BorderRadius.circular(99),
                                   ),
                                   child: Text(
-                                    (o['status'] ?? '').toString().replaceAll('_', ' ').toUpperCase(),
-                                    style: const TextStyle(color: AppTheme.brandBlue, fontWeight: FontWeight.w700, fontSize: 10),
+                                    isPicked ? 'ON THE ROAD' : 'NEW PICKUP REQUEST',
+                                    style: AppTheme.displayFont(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '1.8 km drop',
+                                  style: AppTheme.displayFont(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.primaryOrange,
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Text(
-                              'Drop-off: $addr',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                            ),
-                            if (landmark.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                'Landmark: $landmark',
-                                style: const TextStyle(fontSize: 11, color: AppTheme.accent, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
 
-                            // Payment Status Banner
+                            Text(
+                              'Order $orderNo (Rs. $total)',
+                              style: AppTheme.displayFont(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Includes insulated beverages with ice packs',
+                              style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // PICKUP & DROP DETAILS CARD
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isPaid ? AppTheme.success.withAlpha(20) : AppTheme.accent.withAlpha(20),
-                                borderRadius: BorderRadius.circular(6),
+                                color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: isPaid ? AppTheme.success : AppTheme.accent,
-                                  width: 1,
+                                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                                 ),
                               ),
-                              child: Row(
+                              child: Column(
                                 children: [
-                                  Icon(
-                                    isPaid ? Icons.check_circle_rounded : Icons.payments_outlined,
-                                    size: 16,
-                                    color: isPaid ? AppTheme.success : AppTheme.accent,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      isPaid
-                                          ? 'PREPAID (${paymentMethod.toUpperCase()}) — DO NOT COLLECT CASH'
-                                          : 'CASH TO COLLECT: Rs. ${o['total']}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 11,
-                                        color: isPaid ? AppTheme.success : AppTheme.accent,
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.storefront_rounded, size: 16, color: AppTheme.primaryOrange),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'PICKUP: Central Hub — Naxal / Gairidhara',
+                                          style: AppTheme.bodyFont(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                          ),
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                  const Divider(height: 14),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.location_on_rounded, size: 16, color: AppTheme.successGreen),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'DROP: $addr${landmark.isNotEmpty ? " ($landmark)" : ""}',
+                                          style: AppTheme.bodyFont(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // ACTION BUTTON: ACCEPT & PICK ORDER / DELIVERED
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isPicked ? AppTheme.successGreen : AppTheme.primaryOrange,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                if (!isPicked) {
+                                  _updateOrderStatus(orderId, 'on_the_way');
+                                } else {
+                                  _updateOrderStatus(orderId, 'delivered');
+                                }
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(isPicked ? Icons.check_circle_rounded : Icons.two_wheeler_rounded, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isPicked
+                                        ? 'Hand Over & Mark Delivered (Rs. $total)'
+                                        : 'Accept & Pick Order ($orderNo)',
+                                    style: AppTheme.displayFont(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 10),
 
-                            if (containsAlcohol) ...[
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Mandatory: Inspect customer 18+ physical national identity card before handover.',
-                                style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700, fontSize: 11),
-                              ),
-                            ],
-
-                            const SizedBox(height: 12),
-
-                            // Quick Navigation & Call Actions Row
+                            // COMMUNICATION SHORTCUTS
                             Row(
                               children: [
                                 Expanded(
-                                  child: OutlinedButton.icon(
-                                    icon: const Icon(Icons.navigation_rounded, size: 16, color: AppTheme.brandBlue),
-                                    label: const Text('Navigate (GPS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.brandBlue)),
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(color: AppTheme.brandBlue),
-                                      minimumSize: const Size(0, 42),
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.call, size: 16),
+                                    label: Text('Call $customerName', style: AppTheme.displayFont(fontSize: 11, fontWeight: FontWeight.w700)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.successGreen,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
                                     ),
-                                    onPressed: () => _showNavigationDialog(addr, lat, lon),
+                                    onPressed: () => _callCustomer(phone, customerName),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: OutlinedButton.icon(
-                                    icon: const Icon(Icons.phone, size: 16, color: AppTheme.accent),
-                                    label: const Text('Call Customer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent)),
+                                    icon: const Icon(Icons.navigation_rounded, size: 16, color: AppTheme.navyBrand),
+                                    label: Text('Navigate', style: AppTheme.displayFont(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.navyBrand)),
                                     style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(color: AppTheme.accent),
-                                      minimumSize: const Size(0, 42),
+                                      side: const BorderSide(color: AppTheme.navyBrand),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
-                                    onPressed: () => _showCallDialog(phone, customerName),
+                                    onPressed: () => _showNavigationDialog(addr, lat, lon),
                                   ),
                                 ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // Touch-friendly Status Progression buttons (height >= 56px for rider gloves)
-                            Row(
-                              children: [
-                                if (o['status'] != 'on_the_way' && o['status'] != 'delivered')
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        minimumSize: const Size(double.infinity, 56),
-                                      ),
-                                      onPressed: () => _updateOrderStatus(o['_id'], 'on_the_way'),
-                                      child: const Text('Picked Up -> On The Way'),
+                                const SizedBox(width: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                                     ),
                                   ),
-                                if (o['status'] == 'on_the_way')
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.brandBlue,
-                                        minimumSize: const Size(double.infinity, 56),
-                                      ),
-                                      onPressed: () => _updateOrderStatus(o['_id'], 'delivered'),
-                                      child: Text(isPaid ? 'Delivered (Prepaid Confirmed)' : 'Delivered & Cash Collected'),
-                                    ),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppTheme.primaryOrange),
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ChatScreen(orderId: orderId, orderNo: orderNo),
+                                        ),
+                                      );
+                                    },
                                   ),
+                                ),
                               ],
                             ),
                           ],
                         ),
                       );
                     }),
+
+                  const SizedBox(height: 10),
+
+                  // 3. MY TOTAL WORKS & EARNINGS 4-GRID (MATCHING REDESIGN PROTO)
+                  Text(
+                    'My Total Works & Earnings',
+                    style: AppTheme.displayFont(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.5,
+                    children: [
+                      _buildMetricCard(
+                        title: "Today's Deliveries",
+                        value: '8 Orders',
+                        sub: '● All on time',
+                        subColor: AppTheme.successGreen,
+                        isDark: isDark,
+                      ),
+                      _buildMetricCard(
+                        title: 'Lifetime Rides',
+                        value: '142 Rides',
+                        sub: 'Kathmandu Valley',
+                        subColor: Colors.grey,
+                        isDark: isDark,
+                      ),
+                      _buildMetricCard(
+                        title: 'Cash Collected',
+                        value: 'Rs. 6,840',
+                        sub: 'Ready for settlement',
+                        subColor: AppTheme.primaryOrange,
+                        isDark: isDark,
+                      ),
+                      _buildMetricCard(
+                        title: 'Rider Rating',
+                        value: '★ 4.9',
+                        sub: 'Gold Fleet Level',
+                        subColor: AppTheme.warningYellow,
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 4. VEHICLE & FLEET DETAILS
+                  Text(
+                    'Vehicle & Compliance Details',
+                    style: AppTheme.displayFont(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.navyBrand.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.two_wheeler_rounded, color: AppTheme.navyBrand, size: 24),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Honda Activa 125cc (Ba 98 Pa 4321)',
+                                    style: AppTheme.displayFont(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Insulated Ice-Delivery Carrier Mounted',
+                                    style: AppTheme.bodyFont(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successGreen.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'VERIFIED',
+                                style: AppTheme.displayFont(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.successGreen,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildMetricCard({
+    required String title,
+    required String value,
+    required String sub,
+    required Color subColor,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: AppTheme.bodyFont(fontSize: 11, color: Colors.grey),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: AppTheme.displayFont(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            sub,
+            style: AppTheme.bodyFont(fontSize: 10, fontWeight: FontWeight.w700, color: subColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

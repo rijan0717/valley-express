@@ -1,44 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Valley Express Animated Loader">
-  <style>
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    @keyframes pulse-v {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(0.92); opacity: 0.85; }
-    }
-    @keyframes hop-dot {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
-    }
-    .rotating-ring {
-      transform-origin: 80px 80px;
-      animation: spin 1.4s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-    }
-    .pulse-mark {
-      transform-origin: 80px 80px;
-      animation: pulse-v 1.4s ease-in-out infinite;
-    }
-    .hop-pin {
-      animation: hop-dot 1.2s ease-in-out infinite;
-    }
-  </style>
-
-  <!-- Outer Animated Orbit Rings -->
-  <circle cx="80" cy="80" r="70" fill="none" stroke="#E2E8F0" stroke-width="4" opacity="0.6"/>
-  <circle cx="80" cy="80" r="70" fill="none" stroke="#FF6B1A" stroke-width="5" stroke-linecap="round" stroke-dasharray="110 330" class="rotating-ring"/>
-  <circle cx="80" cy="80" r="70" fill="none" stroke="#003893" stroke-width="5" stroke-linecap="round" stroke-dasharray="60 380" stroke-dashoffset="-200" class="rotating-ring" style="animation-direction: reverse; animation-duration: 2s;"/>
-
-  <!-- Center Badge -->
-  <g class="pulse-mark">
-    <rect x="35" y="35" width="90" height="90" rx="24" fill="#FF6B1A"/>
-    <!-- V Stroke -->
-    <path d="M56 64 L80 106 L104 64" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Hop Location Pin -->
-    <g class="hop-pin">
-      <path d="M80 72 C76 66 73 62 73 57 A7 7 0 0 1 87 57 C87 62 84 66 80 72 Z" fill="#003893"/>
-      <circle cx="80" cy="57" r="2.5" fill="#FFFFFF"/>
-    </g>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Loading">
+<title>Loading</title>
+<style>
+.sq{transform-box:fill-box;transform-origin:center;animation:breathe 2s ease-in-out infinite}
+.v{stroke-dasharray:.62 .38;animation:trace 1.6s linear infinite}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes trace{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){
+.sq{animation:none}
+.v{animation:none;stroke-dasharray:none}
+}</style>
+<rect class="sq" x="10" y="10" width="140" height="140" rx="34" fill="#FF6B1A"/>
+<path class="v" pathLength="1" d="M42 54 L80 122 L118 54" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

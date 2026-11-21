@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/auth_animations.dart';
-import '../../widgets/valley_text_field.dart';
-import '../../widgets/valley_snackbar.dart';
 import '../customer/customer_home_screen.dart';
 import 'login_screen.dart';
 
@@ -17,312 +14,236 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _confirm = TextEditingController();
-
-  final Map<String, String> _errors = {};
-  String _banner = '';
-  bool _obscure = true;
-  bool _obscureConfirm = true;
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
   bool _submitting = false;
-  bool _rememberMe = true;
 
   @override
   void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _password.dispose();
-    _confirm.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  /// Mirrors the server rules so the customer is told what is wrong before a
-  /// round trip. The server validates again regardless.
-  bool _validate() {
-    final errors = <String, String>{};
+  Future<void> _handleRegister() async {
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    if (_name.text.trim().isEmpty) {
-      errors['name'] = 'Enter your full name';
-    } else if (_name.text.trim().length < 2) {
-      errors['name'] = 'Name looks too short';
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showToast('Please fill in your name, email and password.');
+      return;
     }
 
-    final email = _email.text.trim();
-    if (email.isEmpty) {
-      errors['email'] = 'Enter your email address';
-    } else if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      errors['email'] = 'Enter a valid email address';
-    }
-
-    if (_password.text.isEmpty) {
-      errors['password'] = 'Choose a password';
-    } else if (_password.text.length < 8) {
-      errors['password'] = 'Use at least 8 characters';
-    }
-
-    if (_confirm.text.isEmpty) {
-      errors['confirm'] = 'Re-enter your password';
-    } else if (_confirm.text != _password.text) {
-      errors['confirm'] = 'Passwords do not match';
-    }
-
-    setState(() {
-      _errors
-        ..clear()
-        ..addAll(errors);
-      if (errors.isNotEmpty) _banner = '';
-    });
-    return errors.isEmpty;
-  }
-
-  Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
-    if (!_validate()) return;
-
-    setState(() {
-      _submitting = true;
-      _banner = '';
-    });
-
-    final result = await context.read<AuthProvider>().register(
-          name: _name.text,
-          email: _email.text,
-          password: _password.text,
-          rememberMe: _rememberMe,
-        );
-
-    if (!mounted) return;
+    setState(() => _submitting = true);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final res = await auth.register(
+      name: name,
+      email: email,
+      phone: phone.isNotEmpty ? phone : null,
+      password: password,
+    );
     setState(() => _submitting = false);
+    if (!mounted) return;
 
-    if (result.success) {
-      // Deferred: this route is about to be removed, so anchor the message
-      // to the screen the user actually lands on
-      ValleySnack.showAfterNavigation(context, result.message);
-      Navigator.of(context).pushAndRemoveUntil(
+    if (res.success) {
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-        (route) => false,
       );
     } else {
-      setState(() {
-        _errors
-          ..clear()
-          ..addAll(result.fieldErrors);
-        _banner = result.message;
-      });
+      _showToast(res.message.isNotEmpty ? res.message : 'Registration failed. Try again.');
     }
+  }
+
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.navyBrand,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textMain),
-          onPressed: () => Navigator.of(context).maybePop(),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 20,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
+          ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Center(
-                child: SizedBox(
-                  height: 120,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AmbientHalo(size: 170),
-                      CheersAnimation(size: 78),
-                    ],
-                  ),
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryOrange,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryGlow,
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/images/logo.svg',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Create an Account',
+                      style: AppTheme.displayFont(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Join Kathmandu Valley late-night delivery platform',
+                      style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Create your account',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textMain,
-                ),
-              ).authEntrance(index: 0),
-              const SizedBox(height: 6),
-              const Text(
-                'One account for ordering, tracking and support.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w500,
-                ),
-              ).authEntrance(index: 1),
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
 
-              if (_banner.isNotEmpty) ...[
-                ValleyFormBanner(message: _banner)
-                    .animate()
-                    .fadeIn(duration: 220.ms)
-                    .shake(hz: 3, offset: const Offset(2, 0)),
-                const SizedBox(height: 16),
-              ],
-
-              ValleyTextField(
-                controller: _name,
-                label: 'Full name',
-                hint: 'Enter your full name',
-                icon: Icons.person_outline_rounded,
-                errorText: _errors['name'],
-                keyboardType: TextInputType.name,
-                onChanged: (_) => _clear('name'),
-              ).authEntrance(index: 2),
-              const SizedBox(height: 14),
-
-              ValleyTextField(
-                controller: _email,
-                label: 'Email',
-                hint: 'Enter your email address',
-                icon: Icons.mail_outline_rounded,
-                errorText: _errors['email'],
-                keyboardType: TextInputType.emailAddress,
-                onChanged: (_) => _clear('email'),
-              ).authEntrance(index: 3),
-              const SizedBox(height: 14),
-
-              ValleyTextField(
-                controller: _password,
-                label: 'Password',
-                hint: 'Create a password (min. 8 characters)',
-                icon: Icons.lock_outline_rounded,
-                errorText: _errors['password'],
-                obscure: _obscure,
-                onChanged: (_) => _clear('password'),
-                suffix: IconButton(
-                  icon: Icon(
-                    _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 19,
-                    color: AppTheme.textMuted,
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                   ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
                 ),
-              ).authEntrance(index: 4),
-              const SizedBox(height: 14),
-
-              ValleyTextField(
-                controller: _confirm,
-                label: 'Confirm password',
-                hint: 'Re-enter your password',
-                icon: Icons.lock_person_outlined,
-                errorText: _errors['confirm'],
-                obscure: _obscureConfirm,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submit(),
-                onChanged: (_) => _clear('confirm'),
-                suffix: IconButton(
-                  icon: Icon(
-                    _obscureConfirm
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 19,
-                    color: AppTheme.textMuted,
-                  ),
-                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                ),
-              ).authEntrance(index: 5),
-
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: () => setState(() => _rememberMe = !_rememberMe),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: Checkbox(
-                          value: _rememberMe,
-                          onChanged: (v) => setState(() => _rememberMe = v ?? false),
-                          activeColor: AppTheme.accent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildField(
+                      label: 'FULL NAME',
+                      hint: 'e.g. Prajina Maharjan',
+                      icon: Icons.person_outline_rounded,
+                      controller: _nameController,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildField(
+                      label: 'MOBILE NUMBER (OPTIONAL)',
+                      hint: '98XXXXXXXX',
+                      icon: Icons.phone_iphone_rounded,
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildField(
+                      label: 'EMAIL ADDRESS',
+                      hint: 'you@example.com',
+                      icon: Icons.email_outlined,
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildField(
+                      label: 'PASSWORD',
+                      hint: 'At least 8 characters',
+                      icon: Icons.lock_outline_rounded,
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      isDark: isDark,
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Remember me on this device',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textMain,
-                        ),
+                    ),
+                    const SizedBox(height: 22),
+                    ElevatedButton(
+                      onPressed: _submitting ? null : _handleRegister,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryOrange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 4,
+                        shadowColor: AppTheme.primaryOrange.withOpacity(0.35),
                       ),
-                    ],
-                  ),
+                      child: _submitting
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text('Create Account', style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800)),
+                    ),
+                  ],
                 ),
-              ).authEntrance(index: 6),
+              ),
+              const SizedBox(height: 20),
 
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.accent.withValues(alpha: 0.5),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Create account',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                        ),
-                ),
-              ).authEntrance(index: 7),
-
-              const SizedBox(height: 14),
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  ),
-                  child: const Text.rich(
-                    TextSpan(
-                      text: 'Already registered?  ',
-                      style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                      children: [
-                        TextSpan(
-                          text: 'Sign in',
-                          style: TextStyle(
-                            color: AppTheme.brandBlue,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Already have an account? ',
+                    style: AppTheme.bodyFont(
+                      fontSize: 13,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
                     ),
                   ),
-                ),
-              ).authEntrance(index: 8),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    child: Text(
+                      'Sign In',
+                      style: AppTheme.displayFont(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryOrange,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -330,9 +251,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _clear(String field) {
-    if (_errors.containsKey(field)) {
-      setState(() => _errors.remove(field));
-    }
+  Widget _buildField({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required TextEditingController controller,
+    required bool isDark,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTheme.displayFont(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            style: AppTheme.bodyFont(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixIcon: Icon(icon, color: AppTheme.primaryOrange, size: 20),
+              suffixIcon: suffixIcon,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

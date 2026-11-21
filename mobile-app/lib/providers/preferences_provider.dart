@@ -8,17 +8,20 @@ class PreferencesProvider extends ChangeNotifier {
   static const _locationKey = 'valley_pref_location_sharing';
   static const _notificationsKey = 'valley_pref_order_notifications';
   static const _nepaliNamesKey = 'valley_pref_nepali_names';
+  static const _darkModeKey = 'valley_pref_dark_mode';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   bool _locationSharing = true;
   bool _orderNotifications = true;
   bool _showNepaliNames = true;
+  bool _darkMode = false;
   bool _loaded = false;
 
   bool get locationSharing => _locationSharing;
   bool get orderNotifications => _orderNotifications;
   bool get showNepaliNames => _showNepaliNames;
+  bool get isDarkMode => _darkMode;
   bool get isLoaded => _loaded;
 
   Future<void> load() async {
@@ -26,9 +29,11 @@ class PreferencesProvider extends ChangeNotifier {
       final location = await _storage.read(key: _locationKey);
       final notifications = await _storage.read(key: _notificationsKey);
       final nepali = await _storage.read(key: _nepaliNamesKey);
+      final dark = await _storage.read(key: _darkModeKey);
       _locationSharing = location != 'false';
       _orderNotifications = notifications != 'false';
       _showNepaliNames = nepali != 'false';
+      _darkMode = dark == 'true';
     } catch (_) {
       // Secure storage can be unavailable; fall back to the defaults above
     }
@@ -60,5 +65,11 @@ class PreferencesProvider extends ChangeNotifier {
     _showNepaliNames = value;
     notifyListeners();
     await _write(_nepaliNamesKey, value);
+  }
+
+  Future<void> setDarkMode(bool value) async {
+    _darkMode = value;
+    notifyListeners();
+    await _write(_darkModeKey, value);
   }
 }

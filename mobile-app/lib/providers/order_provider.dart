@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../models/order.dart';
@@ -7,10 +8,12 @@ class OrderProvider with ChangeNotifier {
   List<OrderModel> _orders = [];
   OrderModel? _currentOrder;
   bool _isLoading = false;
+  String? _errorMessage;
 
   List<OrderModel> get orders => _orders;
   OrderModel? get currentOrder => _currentOrder;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
   Future<void> fetchMyOrders() async {
     _isLoading = true;
@@ -40,8 +43,10 @@ class OrderProvider with ChangeNotifier {
     String? contactPhone,
     String? offerCode,
     String paymentMethod = 'cash_on_delivery',
+    bool ageConfirmed = false,
   }) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
       final double lon = longitude ?? 85.3300;
@@ -57,10 +62,11 @@ class OrderProvider with ChangeNotifier {
             'type': 'Point',
             'coordinates': [lon, lat],
           },
-          'contactPhone': contactPhone ?? '',
+          'contactPhone': (contactPhone != null && contactPhone.isNotEmpty) ? contactPhone : '9841234567',
         },
         'paymentMethod': paymentMethod,
         if (offerCode != null && offerCode.isNotEmpty) 'offerCode': offerCode,
+        'ageConfirmed': ageConfirmed,
       });
 
       if (res.data['success'] == true) {
@@ -71,7 +77,14 @@ class OrderProvider with ChangeNotifier {
         notifyListeners();
         return newOrder;
       }
-    } catch (_) {}
+    } catch (e) {
+      if (e is DioException) {
+        _errorMessage = e.response?.data?['message'] ?? e.message;
+      } else {
+        _errorMessage = e.toString();
+      }
+      debugPrint('[placeOrder Error] $_errorMessage');
+    }
     _isLoading = false;
     notifyListeners();
     return null;

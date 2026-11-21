@@ -214,6 +214,7 @@ class AuthProvider with ChangeNotifier {
             ageConfirmed: updated['ageConfirmed'] ?? _user!.ageConfirmed,
             isOnline: _user!.isOnline,
             vehicleNumber: _user!.vehicleNumber,
+            avatarUrl: updated['avatarUrl'] ?? _user!.avatarUrl,
           );
           try {
             await _storage.write(
@@ -229,6 +230,19 @@ class AuthProvider with ChangeNotifier {
       return _failure(e, 'Could not update your profile. Please try again.');
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateAvatar(String url) async {
+    if (_user != null) {
+      _user = _user!.copyWith(avatarUrl: url);
+      try {
+        await _storage.write(
+          key: AppConstants.userKey,
+          value: jsonEncode(_user!.toJson()),
+        );
+      } catch (_) {}
       notifyListeners();
     }
   }

@@ -26,11 +26,17 @@ class ValleyExpressApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatUnreadProvider()),
         ChangeNotifierProvider(create: (_) => PreferencesProvider()..load()),
       ],
-      child: MaterialApp(
-        title: 'Valley Express',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const SplashScreen(),
+      child: Consumer<PreferencesProvider>(
+        builder: (context, prefs, _) {
+          return MaterialApp(
+            title: 'Valley Express',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: prefs.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

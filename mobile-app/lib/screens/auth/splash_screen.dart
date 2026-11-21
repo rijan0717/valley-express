@@ -48,9 +48,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppTheme.background,
-      body: Stack(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
+      body: const Stack(
         alignment: Alignment.center,
         children: [
           AmbientHalo(size: 320),

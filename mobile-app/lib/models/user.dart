@@ -7,6 +7,7 @@ class UserModel {
   final bool ageConfirmed;
   final bool isOnline;
   final String? vehicleNumber;
+  final String? avatarUrl;
 
   UserModel({
     required this.id,
@@ -17,6 +18,7 @@ class UserModel {
     this.ageConfirmed = false,
     this.isOnline = false,
     this.vehicleNumber,
+    this.avatarUrl,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class UserModel {
       ageConfirmed: json['ageConfirmed'] ?? false,
       isOnline: json['isOnline'] ?? false,
       vehicleNumber: json['vehicleNumber'],
+      avatarUrl: json['avatarUrl'] ?? json['avatar'],
     );
   }
 
@@ -41,5 +44,30 @@ class UserModel {
     'ageConfirmed': ageConfirmed,
     'isOnline': isOnline,
     'vehicleNumber': vehicleNumber,
+    'avatarUrl': avatarUrl,
   };
+
+  UserModel copyWith({
+    String? id,
+    String? phone,
+    String? name,
+    String? email,
+    String? role,
+    bool? ageConfirmed,
+    bool? isOnline,
+    String? vehicleNumber,
+    String? avatarUrl,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      phone: phone ?? this.phone,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      ageConfirmed: ageConfirmed ?? this.ageConfirmed,
+      isOnline: isOnline ?? this.isOnline,
+      vehicleNumber: vehicleNumber ?? this.vehicleNumber,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+    );
+  }
 }

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../core/theme.dart';
+import '../../providers/auth_provider.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
+import 'login_screen.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
-  const PhoneLoginScreen({super.key});
+  final int initialTab;
+  const PhoneLoginScreen({super.key, this.initialTab = 0});
 
   @override
   State<PhoneLoginScreen> createState() => _PhoneLoginScreenState();
@@ -15,27 +18,49 @@ class PhoneLoginScreen extends StatefulWidget {
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final _phoneController = TextEditingController(text: '9841234567');
   final _otpController = TextEditingController(text: '123456');
-  final _passwordController = TextEditingController(text: 'Rider@123');
-  bool _obscurePassword = true;
-  String _selectedRole = 'customer'; // 'customer' or 'rider'
+  bool _submitting = false;
 
-  Future<void> _handleLogin() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    bool success = false;
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
 
-    if (_selectedRole == 'rider') {
-      success = await auth.riderPasswordLogin(
-        _phoneController.text.trim(),
-        _passwordController.text.trim(),
-      );
-    } else {
-      success = await auth.verifyOtp(
-        _phoneController.text.trim(),
-        _otpController.text.trim(),
-        role: _selectedRole,
-      );
+  Future<void> _handleSendOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      _showToast('Enter a valid 10-digit mobile number.');
+      return;
     }
 
+    setState(() => _submitting = true);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await auth.sendOtp(phone);
+    setState(() => _submitting = false);
+
+    _showToast('Verification code sent to +977 $phone (Demo OTP: 123456)');
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    final phone = _phoneController.text.trim();
+    final otp = _otpController.text.trim();
+
+    if (phone.isEmpty || otp.isEmpty) {
+      _showToast('Please enter your mobile number and 6-digit OTP code.');
+      return;
+    }
+
+    setState(() => _submitting = true);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    // Try customer OTP first, then rider if failed
+    bool success = await auth.verifyOtp(phone, otp, role: 'customer');
+    if (!success) {
+      success = await auth.verifyOtp(phone, otp, role: 'rider');
+    }
+
+    setState(() => _submitting = false);
     if (!mounted) return;
 
     if (success) {
@@ -49,313 +74,332 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
         );
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppTheme.accent,
-          content: Text(_selectedRole == 'rider'
-              ? 'Rider login failed. Check Phone & Password set by Admin.'
-              : 'Invalid OTP or login failed. Try test OTP: 123456'),
-        ),
-      );
+      _showToast('Invalid OTP. Please check the code or try demo OTP: 123456');
     }
   }
 
-  void _autofillDemo(String role) {
-    setState(() {
-      _selectedRole = role;
-      if (role == 'customer') {
-        _phoneController.text = '9841234567';
-        _otpController.text = '123456';
-      } else {
-        _phoneController.text = '9811111111';
-        _passwordController.text = 'Rider@123';
-      }
-    });
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.navyBrand,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Dark Navy Curved Top Banner (matching Figma reference)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 60, bottom: 36, left: 24, right: 24),
-              decoration: const BoxDecoration(
-                color: AppTheme.darkNavy,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
-                ),
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
+      appBar: AppBar(
+        backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+        elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                shape: BoxShape.circle,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.background.withAlpha(25),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.local_shipping_rounded,
-                          color: AppTheme.accent,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'VALLEY EXPRESS',
-                        style: TextStyle(
-                          color: AppTheme.background,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Log In',
-                    style: TextStyle(
-                      color: AppTheme.background,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Please sign in to your Kathmandu delivery account',
-                    style: TextStyle(
-                      color: AppTheme.textSubtle,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 20,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
               ),
             ),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
 
-            // Form Content
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Role Switcher Tabs
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.inputBg,
-                      borderRadius: BorderRadius.circular(14),
+              // LOGO
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryOrange,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryGlow,
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/images/logo.svg',
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _autofillDemo('customer'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: _selectedRole == 'customer' ? AppTheme.background : Colors.transparent,
-                                borderRadius: BorderRadius.circular(11),
-                                border: _selectedRole == 'customer'
-                                    ? Border.all(color: AppTheme.border)
-                                    : null,
+                    const SizedBox(height: 14),
+                    RichText(
+                      text: TextSpan(
+                        style: AppTheme.displayFont(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                        ),
+                        children: const [
+                          TextSpan(text: 'Valley '),
+                          TextSpan(
+                            text: 'EXPRESS',
+                            style: TextStyle(
+                              color: AppTheme.primaryOrange,
+                              letterSpacing: 2,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // OTP CARD
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'SMS OTP Sign In',
+                      style: AppTheme.displayFont(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Enter your mobile number to receive a 6-digit code',
+                      style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // MOBILE NUMBER INPUT
+                    Text(
+                      'MOBILE NUMBER',
+                      style: AppTheme.displayFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            '🇳🇵 +977',
+                            style: AppTheme.displayFont(fontSize: 13, fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(width: 8),
+                          VerticalDivider(
+                            indent: 10,
+                            endIndent: 10,
+                            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              style: AppTheme.bodyFont(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                               ),
-                              child: Center(
-                                child: Text(
-                                  'Customer App',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: _selectedRole == 'customer' ? AppTheme.accent : AppTheme.textMuted,
-                                  ),
-                                ),
+                              decoration: const InputDecoration(
+                                hintText: '98XXXXXXXX',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 6-DIGIT OTP CODE
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '6-DIGIT VERIFICATION CODE',
+                          style: AppTheme.displayFont(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                          ),
                         ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _autofillDemo('rider'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: _selectedRole == 'rider' ? AppTheme.background : Colors.transparent,
-                                borderRadius: BorderRadius.circular(11),
-                                border: _selectedRole == 'rider'
-                                    ? Border.all(color: AppTheme.border)
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Rider Partner',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: _selectedRole == 'rider' ? AppTheme.accent : AppTheme.textMuted,
-                                  ),
-                                ),
-                              ),
+                        GestureDetector(
+                          onTap: _submitting ? null : _handleSendOtp,
+                          child: Text(
+                            'Send OTP',
+                            style: AppTheme.bodyFont(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryOrange,
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Phone Input
-                  const Text(
-                    'MOBILE PHONE NUMBER',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      hintText: '98XXXXXXXX',
-                      prefixIcon: Padding(
-                        padding: EdgeInsets.only(left: 14, right: 8, top: 14),
-                        child: Text(
-                          '+977',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textMain,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      prefixIconConstraints: BoxConstraints(minWidth: 0, minHeight: 0),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  if (_selectedRole == 'rider') ...[
-                    const Text(
-                      'RIDER ACCESS PASSWORD',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textMuted,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        hintText: '••••••••',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                            color: AppTheme.textMuted,
-                            size: 20,
-                          ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    const Text(
-                      'SMS VERIFICATION OTP',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textMuted,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter 6-digit OTP (Test: 123456)',
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-
-                  // Quick Demo Helpers
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      ActionChip(
-                        label: const Text('Customer (9841234567)', style: TextStyle(fontSize: 11)),
-                        backgroundColor: AppTheme.inputBg,
-                        side: BorderSide.none,
-                        onPressed: () => _autofillDemo('customer'),
-                      ),
-                      ActionChip(
-                        label: const Text('Rider (9811111111)', style: TextStyle(fontSize: 11)),
-                        backgroundColor: AppTheme.inputBg,
-                        side: BorderSide.none,
-                        onPressed: () => _autofillDemo('rider'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // Login Button
-                  ElevatedButton(
-                    onPressed: auth.isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      shape: RoundedRectangleBorder(
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                        ),
                       ),
-                    ),
-                    child: auth.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(color: AppTheme.background, strokeWidth: 2),
-                          )
-                        : Text(
-                            _selectedRole == 'rider' ? 'LOG IN AS RIDER' : 'VERIFY & LOG IN',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.pin_outlined, color: AppTheme.primaryOrange, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _otpController,
+                              keyboardType: TextInputType.number,
+                              style: AppTheme.displayFont(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 4,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: '123456',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
                             ),
                           ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  Center(
-                    child: Text(
-                      'Fast 30-min beverage & snack delivery in Kathmandu, Lalitpur & Bhaktapur.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textMuted.withAlpha(200),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 22),
+
+                    // VERIFY & SIGN IN BUTTON
+                    ElevatedButton(
+                      onPressed: _submitting ? null : _handleVerifyOtp,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryOrange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 4,
+                        shadowColor: AppTheme.primaryOrange.withOpacity(0.35),
+                      ),
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              'Verify & Sign In',
+                              style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800),
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+
+              // BACK TO PASSWORD LOGIN
+              Center(
+                child: TextButton.icon(
+                  icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.navyBrand),
+                  label: Text(
+                    'Back to Password Sign In',
+                    style: AppTheme.displayFont(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.navyBrand,
+                    ),
+                  ),
+                  onPressed: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // GUEST BYPASS
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+                    );
+                  },
+                  child: Text(
+                    'Continue as Guest',
+                    style: AppTheme.bodyFont(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

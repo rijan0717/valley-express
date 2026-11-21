@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/auth_animations.dart';
-import '../../widgets/valley_text_field.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
-import 'forgot_password_screen.dart';
 import 'phone_login_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,293 +17,451 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _identifier = TextEditingController();
-  final _password = TextEditingController();
-
-  final Map<String, String> _errors = {};
-  String _banner = '';
-  bool _obscure = true;
+  final _identifierController = TextEditingController(text: '9841234567');
+  final _passwordController = TextEditingController(text: 'secret1234');
+  bool _obscurePassword = true;
   bool _submitting = false;
 
   @override
   void dispose() {
-    _identifier.dispose();
-    _password.dispose();
+    _identifierController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  bool _validate() {
-    final errors = <String, String>{};
-    final id = _identifier.text.trim();
+  Future<void> _handleSignIn() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text.trim();
 
-    if (id.isEmpty) {
-      errors['identifier'] = 'Enter your mobile number or email';
-    } else if (id.contains('@')) {
-      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(id)) {
-        errors['identifier'] = 'Enter a valid email address';
+    if (identifier.isEmpty || password.isEmpty) {
+      _showToast('Please enter your mobile number or email and password.');
+      return;
+    }
+
+    setState(() => _submitting = true);
+
+    // Try rider password login first if it's the rider test or credentials
+    bool success = false;
+    final res = await auth.loginWithPassword(identifier, password);
+    success = res.success;
+
+    if (!success) {
+      // Check if this is a rider account
+      success = await auth.riderPasswordLogin(identifier, password);
+    }
+
+    setState(() => _submitting = false);
+    if (!mounted) return;
+
+    if (success) {
+      if (auth.user?.role == 'rider') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const RiderHomeScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+        );
       }
-    } else if (!RegExp(r'^9[78]\d{8}$').hasMatch(id)) {
-      errors['identifier'] = 'Enter a valid 10-digit number, or use your email';
+    } else {
+      _showToast(res.message.isNotEmpty ? res.message : 'Invalid credentials. You can also sign in with SMS OTP.');
     }
-
-    if (_password.text.isEmpty) {
-      errors['password'] = 'Enter your password';
-    }
-
-    setState(() {
-      _errors
-        ..clear()
-        ..addAll(errors);
-      if (errors.isNotEmpty) _banner = '';
-    });
-    return errors.isEmpty;
   }
 
-  Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
-    if (!_validate()) return;
-
-    setState(() {
-      _submitting = true;
-      _banner = '';
-    });
-
-    final auth = context.read<AuthProvider>();
-    final result = await auth.loginWithPassword(_identifier.text, _password.text);
-
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    if (result.success) {
-      // No success toast here: landing on the home screen is the confirmation,
-      // and firing one while this route is being removed leaves it anchored to
-      // a Scaffold that no longer exists.
-      final isRider = auth.user?.role == 'rider';
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => isRider ? const RiderHomeScreen() : const CustomerHomeScreen(),
-        ),
-        (route) => false,
-      );
-    } else {
-      setState(() {
-        _errors
-          ..clear()
-          ..addAll(result.fieldErrors);
-        _banner = result.message;
-      });
-    }
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.navyBrand,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textMain),
-          onPressed: () => Navigator.of(context).maybePop(),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+                );
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 20,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+              ),
+            ),
+          ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Center(
-                child: SizedBox(
-                  height: 150,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AmbientHalo(size: 200),
-                      DeliveryRunAnimation(height: 120),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Welcome back',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textMain,
-                ),
-              ).authEntrance(index: 0),
-              const SizedBox(height: 6),
-              const Text(
-                'Sign in to pick up where you left off.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w500,
-                ),
-              ).authEntrance(index: 1),
-              const SizedBox(height: 22),
+              const SizedBox(height: 10),
 
-              if (_banner.isNotEmpty) ...[
-                ValleyFormBanner(message: _banner)
-                    .animate()
-                    .fadeIn(duration: 220.ms)
-                    .shake(hz: 3, offset: const Offset(2, 0)),
-                const SizedBox(height: 16),
-              ],
-
-              ValleyTextField(
-                controller: _identifier,
-                label: 'Mobile number or email',
-                hint: '98XXXXXXXX or you@example.com',
-                icon: Icons.account_circle_outlined,
-                errorText: _errors['identifier'],
-                keyboardType: TextInputType.emailAddress,
-                onChanged: (_) => _clear('identifier'),
-              ).authEntrance(index: 2),
-              const SizedBox(height: 14),
-
-              ValleyTextField(
-                controller: _password,
-                label: 'Password',
-                hint: 'Your password',
-                icon: Icons.lock_outline_rounded,
-                errorText: _errors['password'],
-                obscure: _obscure,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submit(),
-                onChanged: (_) => _clear('password'),
-                suffix: IconButton(
-                  icon: Icon(
-                    _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 19,
-                    color: AppTheme.textMuted,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-              ).authEntrance(index: 3),
-
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                  ),
-                  child: const Text(
-                    'Forgot password?',
-                    style: TextStyle(
-                      color: AppTheme.brandBlue,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ).authEntrance(index: 4),
-
-              const SizedBox(height: 6),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.accent.withValues(alpha: 0.5),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
+              // BRAND LOGO & HEADLINE
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryOrange,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryGlow,
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
-                        )
-                      : const Text(
-                          'Sign in',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                        ),
-                ),
-              ).authEntrance(index: 5),
-
-              const SizedBox(height: 18),
-              const Row(
-                children: [
-                  Expanded(child: Divider(color: AppTheme.border)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'OR',
-                      style: TextStyle(
-                        color: AppTheme.textSubtle,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
+                        ],
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/images/logo.svg',
+                        fit: BoxFit.contain,
                       ),
                     ),
-                  ),
-                  Expanded(child: Divider(color: AppTheme.border)),
-                ],
-              ).authEntrance(index: 6),
-              const SizedBox(height: 14),
-
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
-                  ),
-                  icon: const Icon(Icons.sms_outlined, size: 18),
-                  label: const Text(
-                    'Sign in with an SMS code',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.brandBlue,
-                    side: const BorderSide(color: AppTheme.border, width: 1.4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
+                    const SizedBox(height: 14),
+                    RichText(
+                      text: TextSpan(
+                        style: AppTheme.displayFont(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                        ),
+                        children: const [
+                          TextSpan(text: 'Valley '),
+                          TextSpan(
+                            text: 'EXPRESS',
+                            style: TextStyle(
+                              color: AppTheme.primaryOrange,
+                              letterSpacing: 2,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Fast to order. Fast to your door.',
+                      style: AppTheme.bodyFont(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      ),
+                    ),
+                  ],
                 ),
-              ).authEntrance(index: 7),
+              ),
+              const SizedBox(height: 28),
 
-              const SizedBox(height: 10),
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+              // LOGIN CARD CONTAINER
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                   ),
-                  child: const Text.rich(
-                    TextSpan(
-                      text: 'New to Valley Express?  ',
-                      style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Welcome Back',
+                      style: AppTheme.displayFont(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sign in to Kathmandu late-night delivery express',
+                      style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // MOBILE / EMAIL INPUT
+                    Text(
+                      'MOBILE NUMBER OR EMAIL',
+                      style: AppTheme.displayFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _identifierController,
+                        style: AppTheme.bodyFont(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: '98XXXXXXXX or email@example.com',
+                          prefixIcon: Icon(Icons.phone_iphone_rounded, color: AppTheme.primaryOrange, size: 20),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // PASSWORD INPUT
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        TextSpan(
-                          text: 'Create an account',
-                          style: TextStyle(
-                            color: AppTheme.brandBlue,
-                            fontWeight: FontWeight.w700,
+                        Text(
+                          'PASSWORD',
+                          style: AppTheme.displayFont(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                            );
+                          },
+                          child: Text(
+                            'Forgot password?',
+                            style: AppTheme.bodyFont(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryOrange,
+                            ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: AppTheme.bodyFont(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Enter your password',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryOrange, size: 20),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              size: 18,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+
+                    // SIGN IN BUTTON
+                    ElevatedButton(
+                      onPressed: _submitting ? null : _handleSignIn,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryOrange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 4,
+                        shadowColor: AppTheme.primaryOrange.withOpacity(0.35),
+                      ),
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              'Sign In',
+                              style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800),
+                            ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // SCOOTER BANNER
+                    Container(
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                        ),
+                      ),
+                      child: Center(
+                        child: SvgPicture.asset(
+                          'assets/images/scooter-banner.svg',
+                          height: 44,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // OR QUICK LOGIN WITH SMS OTP
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'OR QUICK LOGIN',
+                            style: AppTheme.displayFont(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.sms_outlined, size: 18, color: AppTheme.navyBrand),
+                      label: Text(
+                        'Sign in with SMS OTP Code',
+                        style: AppTheme.displayFont(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.navyBrand,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.navyBrand, width: 1.2),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // SIGN UP LINK
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'New to Valley Express? ',
+                    style: AppTheme.bodyFont(
+                      fontSize: 13,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                      );
+                    },
+                    child: Text(
+                      'Create an account',
+                      style: AppTheme.displayFont(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryOrange,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // GUEST BYPASS
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+                    );
+                  },
+                  child: Text(
+                    'Continue as Guest',
+                    style: AppTheme.bodyFont(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
-              ).authEntrance(index: 8),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
       ),
     );
-  }
-
-  void _clear(String field) {
-    if (_errors.containsKey(field)) {
-      setState(() => _errors.remove(field));
-    }
   }
 }

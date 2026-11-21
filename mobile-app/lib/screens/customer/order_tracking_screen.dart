@@ -35,27 +35,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Widget build(BuildContext context) {
     final orderProv = Provider.of<OrderProvider>(context);
     final order = orderProv.currentOrder;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldBg,
-      appBar: AppBar(
-        title: const Text('Track Order'),
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).maybePop(),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppTheme.inputBg,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_back, size: 20, color: AppTheme.textMain),
-            ),
-          ),
-        ),
-      ),
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       body: orderProv.isLoading
-          ? const ValleyLoaderScreen(label: "Loading live tracking...")
+          ? const ValleyLoaderScreen(label: "Loading live GPS tracking...")
           : order == null
               ? Center(
                   child: Padding(
@@ -63,27 +48,31 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.delivery_dining_outlined, size: 56, color: AppTheme.textSubtle),
-                        const SizedBox(height: 12),
-                        const Text(
+                        const Icon(Icons.delivery_dining_outlined, size: 64, color: AppTheme.primaryOrange),
+                        const SizedBox(height: 14),
+                        Text(
                           'No Active Order Found',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.textMain),
+                          style: AppTheme.displayFont(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                          ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Your live deliveries will appear here with real-time status updates.',
+                        Text(
+                          'Your live deliveries will appear here with real-time rider tracking.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.accent,
-                            minimumSize: const Size(160, 42),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            backgroundColor: AppTheme.primaryOrange,
+                            minimumSize: const Size(160, 46),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                          child: const Text('Back to Home'),
+                          child: Text('Back to Menu', style: AppTheme.displayFont(fontSize: 13, fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),
@@ -91,7 +80,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 )
               : Stack(
                   children: [
-                    // Top Half: Interactive OpenStreetMap Tile Viewer
+                    // TOP HALF: MAP VIEWPORT
                     Column(
                       children: [
                         Expanded(
@@ -104,223 +93,241 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                   fit: BoxFit.cover,
                                   headers: const {'User-Agent': 'ValleyExpressTracking/1.0'},
                                   errorBuilder: (_, __, ___) => Container(
-                                    color: AppTheme.inputBg,
-                                    child: const Center(
-                                      child: Icon(Icons.map_rounded, size: 48, color: AppTheme.textSubtle),
+                                    color: isDark ? const Color(0xFF0B0E17) : const Color(0xFFE2E8F0),
+                                    child: Center(
+                                      child: Icon(Icons.map_rounded, size: 48, color: isDark ? Colors.grey[700] : Colors.grey[400]),
                                     ),
                                   ),
                                 ),
                               ),
 
-                              // Map Drop-off Pin Marker
-                              Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.darkNavy,
-                                        borderRadius: BorderRadius.circular(20),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withAlpha(50),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        order.addressText.split(',')[0],
-                                        style: const TextStyle(
-                                          color: AppTheme.background,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Icon(Icons.location_on_rounded, color: AppTheme.accent, size: 36),
-                                  ],
-                                ),
-                              ),
-
-                              // Hub Pin Marker (Kathmandu Dispatch)
+                              // Back Button (Top Left)
                               Positioned(
-                                top: 20,
-                                left: 24,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.background,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppTheme.border),
+                                top: 40,
+                                left: 16,
+                                child: GestureDetector(
+                                  onTap: () => Navigator.of(context).pop(),
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.15),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.arrow_back_rounded,
+                                      size: 20,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                    ),
                                   ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.storefront_rounded, size: 14, color: AppTheme.brandBlue),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Valley Central Hub',
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.brandBlue),
+                                ),
+                              ),
+
+                              // Central Hub Badge (Top Right)
+                              Positioned(
+                                top: 40,
+                                right: 16,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.navyBrand,
+                                    borderRadius: BorderRadius.circular(99),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 8,
                                       ),
                                     ],
+                                  ),
+                                  child: Text(
+                                    'Hub: Valley Naxal',
+                                    style: AppTheme.displayFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Center Rider Marker (Matching Redesign Prototype)
+                              Center(
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryOrange,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.primaryGlow,
+                                        blurRadius: 16,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 22),
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        // Spacer for bottom card
-                        const Expanded(flex: 6, child: SizedBox()),
+                        const Expanded(flex: 5, child: SizedBox()),
                       ],
                     ),
 
-                    // Bottom Floating Bottom Sheet Card (matching Figma reference)
+                    // BOTTOM HALF: BOTTOM SHEET CARD (MATCHING REDESIGN)
                     Positioned(
                       bottom: 0,
                       left: 0,
                       right: 0,
                       child: Container(
-                        height: MediaQuery.of(context).size.height * 0.52,
-                        padding: const EdgeInsets.all(20),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.background,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(28),
-                            topRight: Radius.circular(28),
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(30),
+                          ),
+                          border: Border.all(
+                            color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0x14000000),
-                              blurRadius: 16,
-                              offset: Offset(0, -4),
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 20,
+                              offset: const Offset(0, -4),
                             ),
                           ],
                         ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Handle bar
-                              Center(
-                                child: Container(
-                                  width: 40,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.border,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 38,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(99),
                                 ),
                               ),
-                              const SizedBox(height: 14),
+                            ),
+                            const SizedBox(height: 16),
 
-                              // Hub and Order Header Row
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.inputBg,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: const Icon(Icons.delivery_dining_rounded, color: AppTheme.accent, size: 28),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          order.orderNo,
-                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.textMain),
-                                        ),
-                                        Text(
-                                          '${order.items.length} item(s) • Rs. ${order.total}',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accent),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: order.status == 'delivered'
-                                          ? AppTheme.success.withAlpha(20)
-                                          : AppTheme.accent.withAlpha(20),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      order.status.replaceAll('_', ' ').toUpperCase(),
-                                      style: TextStyle(
-                                        color: order.status == 'delivered' ? AppTheme.success : AppTheme.accent,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 10,
+                            // ORDER NO & STATUS ROW
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Order ${order.orderNo}',
+                                      style: AppTheme.displayFont(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                                       ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Rider: ${order.riderName ?? "Suresh S."} • ETA: 16 mins',
+                                      style: AppTheme.bodyFont(
+                                        fontSize: 12,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryOrange.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(99),
+                                    border: Border.all(color: AppTheme.primaryOrange.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    order.status.replaceAll('_', ' ').toUpperCase(),
+                                    style: AppTheme.displayFont(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.primaryOrange,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+
+                            // STEP PROGRESSION TIMELINE
+                            _buildStepRow(
+                              title: 'Order Verified & Dispatched',
+                              isDone: true,
+                              isCurrent: false,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildStepRow(
+                              title: 'Rider navigating Baluwatar corridor',
+                              isDone: true,
+                              isCurrent: true,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildStepRow(
+                              title: 'Doorstep delivery & Fonepay verification',
+                              isDone: order.status == 'delivered',
+                              isCurrent: false,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 22),
+
+                            // CHAT BUTTON
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryOrange,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      orderId: order.id,
+                                      orderNo: order.orderNo,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Direct Chat with Dispatch / Rider',
+                                    style: AppTheme.displayFont(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16),
-
-                              // Delivery Progression Timeline
-                              const Text(
-                                'DELIVERY PROGRESSION',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textMuted,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-
-                              _buildProgressStep(
-                                title: 'Order Received & Verified',
-                                desc: 'Transmitted to Kathmandu kitchen hub',
-                                isDone: true,
-                              ),
-                              _buildProgressStep(
-                                title: 'Kitchen Preparing & Chilling',
-                                desc: 'Beverages safely packed with chilled seal',
-                                isDone: ['preparing', 'rider_assigned', 'picked_up', 'on_the_way', 'delivered'].contains(order.status),
-                              ),
-                              _buildProgressStep(
-                                title: 'Rider Dispatched',
-                                desc: order.riderName != null ? '${order.riderName} en route' : 'Dispatched to your drop-off',
-                                isDone: ['picked_up', 'on_the_way', 'delivered'].contains(order.status),
-                              ),
-                              _buildProgressStep(
-                                title: 'Delivered & Completed',
-                                desc: 'Cash cleared and handed over',
-                                isDone: order.status == 'delivered',
-                                isLast: true,
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Chat with Dispatch / Rider Button (matching Figma)
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => ChatScreen(orderId: order.id, orderNo: order.orderNo),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                                label: const Text('Direct Chat with Dispatch / Rider'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.accent,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                         ),
                       ),
                     ),
@@ -329,56 +336,65 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
-  Widget _buildProgressStep({
+  Widget _buildStepRow({
     required String title,
-    required String desc,
     required bool isDone,
-    bool isLast = false,
+    required bool isCurrent,
+    required bool isDark,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDone ? AppTheme.accent : AppTheme.background,
-                border: Border.all(
-                  color: isDone ? AppTheme.accent : AppTheme.border,
-                  width: 2,
-                ),
-              ),
-              child: isDone
-                  ? const Center(child: Icon(Icons.check, size: 10, color: AppTheme.background))
-                  : null,
+    Color iconColor;
+    Widget iconWidget;
+
+    if (isCurrent) {
+      iconColor = AppTheme.primaryOrange;
+      iconWidget = Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: AppTheme.primaryOrange,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryOrange.withOpacity(0.6),
+              blurRadius: 6,
             ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 28,
-                color: isDone ? AppTheme.accent : AppTheme.border,
-              ),
           ],
         ),
-        const SizedBox(width: 12),
+      );
+    } else if (isDone) {
+      iconColor = AppTheme.successGreen;
+      iconWidget = const Icon(Icons.check_rounded, color: AppTheme.successGreen, size: 14);
+    } else {
+      iconColor = Colors.grey;
+      iconWidget = Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey, width: 1.5),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          child: iconWidget,
+        ),
+        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: isDone ? AppTheme.textMain : AppTheme.textSubtle,
-                ),
-              ),
-              Text(desc, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
-              const SizedBox(height: 6),
-            ],
+          child: Text(
+            title,
+            style: AppTheme.bodyFont(
+              fontSize: 13,
+              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+              color: isCurrent
+                  ? (isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)
+                  : (isDone ? (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary) : Colors.grey),
+            ),
           ),
         ),
       ],

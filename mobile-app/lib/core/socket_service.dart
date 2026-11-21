@@ -8,9 +8,16 @@ class SocketService {
 
   io.Socket? socket;
   bool isConnected = false;
+  String? currentUserId;
+  final Set<String> _joinedOrders = {};
 
   void connect() {
-    if (socket != null && socket!.connected) return;
+    if (socket != null && socket!.connected) {
+      if (currentUserId != null) {
+        socket?.emit('join:user', currentUserId);
+      }
+      return;
+    }
 
     socket = io.io(
       AppConstants.socketUrl,
@@ -23,6 +30,12 @@ class SocketService {
 
     socket!.onConnect((_) {
       isConnected = true;
+      if (currentUserId != null) {
+        socket?.emit('join:user', currentUserId);
+      }
+      for (final orderId in _joinedOrders) {
+        socket?.emit('join:order', orderId);
+      }
     });
 
     socket!.onDisconnect((_) {
@@ -30,7 +43,13 @@ class SocketService {
     });
   }
 
+  void joinUser(String userId) {
+    currentUserId = userId;
+    socket?.emit('join:user', userId);
+  }
+
   void joinOrder(String orderId) {
+    _joinedOrders.add(orderId);
     socket?.emit('join:order', orderId);
   }
 
@@ -41,5 +60,6 @@ class SocketService {
   void disconnect() {
     socket?.disconnect();
     isConnected = false;
+    _joinedOrders.clear();
   }
 }
