@@ -5,7 +5,6 @@ import '../../providers/order_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
-import '../../models/order.dart';
 import 'order_tracking_screen.dart';
 import 'map_address_picker_screen.dart';
 import '../auth/login_screen.dart';

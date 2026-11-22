@@ -7,6 +7,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/preferences_provider.dart';
 
 class SelectedLocation {
@@ -49,7 +50,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   final ApiClient _api = ApiClient();
   final _searchController = TextEditingController();
   final _landmarkController = TextEditingController();
-  final _phoneController = TextEditingController(text: '9841234567');
+  final _phoneController = TextEditingController();
 
   MapLibreMapController? _mapController;
   late double _currentLat;
@@ -71,7 +72,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   String _searchedTerm = '';
 
   // Popular Quick Zones across Nepal (including Smriti Marg, Thapathali matching prototype)
-  final List<Map<String, dynamic>> _popularZones = [
+  List<Map<String, dynamic>> _popularZones = [
     {
       'name': 'Smriti Marg, Thapathali',
       'lat': 27.6938,
@@ -334,6 +335,11 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     _formattedAddress = '${widget.initialAddress}, Nepal';
     _landmarkController.text = widget.initialLandmark;
     _reverseGeocode(_currentLat, _currentLon);
+
+    // Pre-fill the delivery contact from the signed-in account rather than a
+    // fixed test number, which riders would otherwise be handed verbatim.
+    final phone = context.read<AuthProvider>().user?.phone ?? '';
+    if (phone.isNotEmpty) _phoneController.text = phone;
   }
 
   @override
@@ -514,9 +520,20 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       if (res.data['success'] == true && mounted) {
         final List<dynamic> remote = res.data['results'] ?? [];
         final combined = [...localMatches];
-        for (var r in remote) {
-          final exists = combined.any((c) => c['name'] == r['name']);
-          if (!exists) combined.add(r);
+        // Matched on id, then position — not on name. Streets and localities
+        // routinely return several distinct points sharing one name, and
+        // comparing names threw all but the first of them away.
+        String keyOf(dynamic item) {
+          final id = item['id'];
+          if (id != null && id.toString().isNotEmpty) return 'id:$id';
+          final lat = (item['latitude'] as num?)?.toStringAsFixed(5);
+          final lon = (item['longitude'] as num?)?.toStringAsFixed(5);
+          return 'at:$lat,$lon';
+        }
+
+        final seen = combined.map(keyOf).toSet();
+        for (final r in remote) {
+          if (seen.add(keyOf(r))) combined.add(r);
         }
         setState(() {
           _searchResults = combined;

@@ -2,6 +2,27 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'constants.dart';
 
+/// Turns a Dio failure into something worth showing a customer.
+///
+/// Interpolating the exception itself leaks the whole Dio diagnostic — for a
+/// connection error on web that is a paragraph of CORS boilerplate, which is
+/// both alarming and wrong: the browser cannot tell a refused connection from
+/// a blocked one, so it reports the latter either way.
+String friendlyApiError(Object error, String fallback) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map && data['message'] != null) {
+      return data['message'].toString();
+    }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return 'Cannot reach Valley Express. Check your connection and try again.';
+    }
+  }
+  return fallback;
+}
+
 class ApiClient {
   late Dio dio;
   final FlutterSecureStorage storage = const FlutterSecureStorage();
