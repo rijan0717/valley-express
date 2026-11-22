@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/auth_tab_bar.dart';
+import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
 import 'login_screen.dart';
 
@@ -16,16 +18,16 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _submitting = false;
+  // Pre-ticked to match the prototype; the API rejects sign-up without it.
+  bool _ageConfirmed = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -33,11 +35,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
-    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showToast('Please fill in your name, email and password.');
+    if (name.isEmpty || phone.isEmpty || password.isEmpty) {
+      _showToast('Please fill in your name, mobile number and password.');
+      return;
+    }
+    if (password.length < 8) {
+      _showToast('Your password needs at least 8 characters.');
+      return;
+    }
+    if (!_ageConfirmed) {
+      _showToast('Please confirm you are 18 or older to order.');
       return;
     }
 
@@ -45,9 +54,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final res = await auth.register(
       name: name,
-      email: email,
-      phone: phone.isNotEmpty ? phone : null,
+      phone: phone,
       password: password,
+      ageConfirmed: _ageConfirmed,
     );
     setState(() => _submitting = false);
     if (!mounted) return;
@@ -81,6 +90,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
+        title: Text(
+          'Create Account',
+          style: AppTheme.displayFont(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
+        titleSpacing: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
@@ -105,47 +119,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryOrange,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryGlow,
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: SvgPicture.asset(
-                        'assets/images/logo.svg',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Create an Account',
-                      style: AppTheme.displayFont(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Join Kathmandu Valley late-night delivery platform',
-                      style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+              const AuthTabBar(current: AuthTab.createAccount),
+              const SizedBox(height: 16),
 
               Container(
                 padding: const EdgeInsets.all(20),
@@ -159,6 +134,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryOrange,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryGlow,
+                              blurRadius: 14,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: SvgPicture.asset(
+                          'assets/images/brand/mark-v.svg',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Create Account',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.displayFont(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'One account for orders, tracking & support',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 18),
                     _buildField(
                       label: 'FULL NAME',
                       hint: 'e.g. Prajina Maharjan',
@@ -167,27 +181,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       isDark: isDark,
                     ),
                     const SizedBox(height: 14),
-                    _buildField(
-                      label: 'MOBILE NUMBER (OPTIONAL)',
-                      hint: '98XXXXXXXX',
-                      icon: Icons.phone_iphone_rounded,
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      isDark: isDark,
-                    ),
+                    _buildPhoneField(isDark),
                     const SizedBox(height: 14),
                     _buildField(
-                      label: 'EMAIL ADDRESS',
-                      hint: 'you@example.com',
-                      icon: Icons.email_outlined,
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildField(
-                      label: 'PASSWORD',
-                      hint: 'At least 8 characters',
+                      label: 'PASSWORD (MIN. 8 CHARACTERS)',
+                      hint: 'Create a strong password',
                       icon: Icons.lock_outline_rounded,
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -197,7 +195,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
+                    _buildAgeGate(isDark),
+                    const SizedBox(height: 18),
                     ElevatedButton(
                       onPressed: _submitting ? null : _handleRegister,
                       style: ElevatedButton.styleFrom(
@@ -209,7 +209,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       child: _submitting
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text('Create Account', style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800)),
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('Create Free Account',
+                                    style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800)),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward_rounded, size: 18),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: ValleyRideStrip(height: 44),
+                      ),
                     ),
                   ],
                 ),
@@ -261,6 +282,158 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Widget? suffixIcon,
     TextInputType? keyboardType,
   }) {
+    return _labelled(
+      label,
+      isDark,
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: TextField(
+          controller: controller,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          style: AppTheme.bodyFont(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, color: AppTheme.primaryOrange, size: 20),
+            suffixIcon: suffixIcon,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Mobile number with the fixed Nepali dialling code alongside it, as in
+  /// the prototype: the country part is not editable, only the 10 digits.
+  Widget _buildPhoneField(bool isDark) {
+    return _labelled(
+      'MOBILE NUMBER',
+      isDark,
+      Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('NP',
+                      style: AppTheme.displayFont(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      )),
+                  Text('+977',
+                      style: AppTheme.displayFont(fontSize: 13, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
+            VerticalDivider(
+              width: 1,
+              indent: 10,
+              endIndent: 10,
+              color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+            ),
+            Expanded(
+              child: TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                style: AppTheme.bodyFont(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                ),
+                decoration: const InputDecoration(
+                  hintText: '98XXXXXXXX',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The 18+ declaration. Kathmandu liquor rules sit behind this, so it is
+  /// recorded on the account and the API refuses sign-up without it.
+  Widget _buildAgeGate(bool isDark) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: _ageConfirmed
+              ? AppTheme.successGreen.withOpacity(isDark ? 0.16 : 0.10)
+              : (isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Checkbox(
+                value: _ageConfirmed,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: AppTheme.navyBrand,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                onChanged: (v) => setState(() => _ageConfirmed = v ?? false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: AppTheme.bodyFont(
+                    fontSize: 11,
+                    height: 1.45,
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: '18+ Age Verification: ',
+                      style: AppTheme.displayFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      ),
+                    ),
+                    const TextSpan(
+                      text:
+                          'I confirm I am 18 years or older as required by Kathmandu liquor '
+                          'regulations for alcoholic deliveries.',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _labelled(String label, bool isDark, Widget field) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -274,33 +447,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-            ),
-          ),
-          child: TextField(
-            controller: controller,
-            obscureText: obscureText,
-            keyboardType: keyboardType,
-            style: AppTheme.bodyFont(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              prefixIcon: Icon(icon, color: AppTheme.primaryOrange, size: 20),
-              suffixIcon: suffixIcon,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-        ),
+        field,
       ],
     );
   }

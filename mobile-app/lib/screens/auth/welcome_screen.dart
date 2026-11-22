@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_brand.dart';
 import 'phone_login_screen.dart';
-import '../customer/customer_home_screen.dart';
 
 /// Screen 1 from Prototype: Redesigned Welcome / Splash Action Screen
 class WelcomeScreen extends StatelessWidget {
@@ -88,12 +88,10 @@ class WelcomeScreen extends StatelessWidget {
                     color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
                   ),
                 ),
-                child: Center(
-                  child: SvgPicture.asset(
-                    'assets/images/scooter-banner.svg',
-                    height: 52,
-                    fit: BoxFit.contain,
-                  ),
+                clipBehavior: Clip.antiAlias,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: ValleyRideStrip(height: 56),
                 ),
               ),
 
@@ -123,31 +121,6 @@ class WelcomeScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Icon(Icons.arrow_forward_rounded, size: 18),
                   ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
-                  backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
-                  side: BorderSide(
-                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: Text(
-                  'Continue as Guest',
-                  style: AppTheme.displayFont(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
               ),
               const SizedBox(height: 16),
