@@ -206,45 +206,15 @@ export const ValleyLoader = ({
         </svg>
       )}
 
-      {/* Variant: BADGE LOADER (Default) */}
+      {/* Variant: BADGE LOADER (Default - Valley Express Branded Animated SVG) */}
       {variant === 'badge' && (
-        <svg
-          viewBox="0 0 160 160"
+        <img
+          src="/valley-express-loader.svg"
+          alt="Valley Express Loading"
           width={dimension}
           height={dimension}
-          style={{ display: 'block' }}
-          aria-label="Valley Express Badge Loader"
-        >
-          {/* Orange rounded square */}
-          <rect
-            className="v-square-pulse"
-            x="10"
-            y="10"
-            width="140"
-            height="140"
-            rx="32"
-            fill="#FF6B1A"
-          />
-
-          {/* White V stroke */}
-          <path
-            d="M44 56 L80 120 L116 56"
-            fill="none"
-            stroke="#FFFFFF"
-            strokeWidth="14"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Bouncing Blue Pin inside the V */}
-          <g className="v-pin-bounce">
-            <path
-              d="M80 68 C75 61 71 56 71 49 A9 9 0 0 1 89 49 C89 56 85 61 80 68 Z"
-              fill="#003893"
-            />
-            <circle cx="80" cy="49" r="3.5" fill="#FFFFFF" />
-          </g>
-        </svg>
+          style={{ display: 'block', maxWidth: '100%', objectFit: 'contain' }}
+        />
       )}
 
       {text && (

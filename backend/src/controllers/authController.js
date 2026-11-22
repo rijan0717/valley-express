@@ -1,7 +1,9 @@
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/token');
 const { sendSMS } = require('../services/smsService');
+const { createNotification } = require('./notificationController');
 
 // In-memory OTP storage for rapid testing & local SMS gateway
 const otpStore = new Map();
@@ -66,6 +68,18 @@ const adminLogin = async (req, res) => {
 
     const token = generateToken(user._id, user.role);
 
+    // If customer logs in for the first time, ensure they receive the Welcome notification
+    Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
+      if (!exists) {
+        createNotification(user._id, {
+          title: 'Welcome to Valley Express! 🚀',
+          body: `Welcome to Valley Express! Enjoy superfast delivery of chilled drinks, cold beers, snacks & night essentials across Kathmandu Valley. Use code VALLEYFIRST for 15% off your first order!`,
+          type: 'promo',
+          data: { code: 'VALLEYFIRST', url: '/offers' },
+        });
+      }
+    }).catch(() => {});
+
     res.json({
       success: true,
       message: 'Admin authentication successful',
@@ -114,7 +128,7 @@ const register = async (req, res) => {
     // sign-up form collects only a mobile, so email is no longer mandatory —
     // but one of the two has to be present to have something to sign in with.
     if (!hasEmail && !hasPhone) {
-      errors.phone = 'Enter your mobile number';
+      errors.phone = 'Enter your email or mobile number';
     }
     if (hasEmail && !isValidEmail(String(email).trim())) {
       errors.email = 'Enter a valid email address';
@@ -192,6 +206,14 @@ const register = async (req, res) => {
 
     const token = generateToken(user._id, user.role);
 
+    // Automatically send welcome notification to newly registered user
+    createNotification(user._id, {
+      title: 'Welcome to Valley Express! 🚀',
+      body: `Welcome to Valley Express! Enjoy superfast delivery of chilled drinks, cold beers, snacks & night essentials across Kathmandu Valley. Use code VALLEYFIRST for 15% off your first order!`,
+      type: 'promo',
+      data: { code: 'VALLEYFIRST', url: '/offers' },
+    }).catch(() => {});
+
     res.status(201).json({
       success: true,
       message: 'Account created successfully. Welcome to Valley Express.',
@@ -255,6 +277,18 @@ const customerLogin = async (req, res) => {
     }
 
     const token = generateToken(user._id, user.role);
+
+    // If customer logs in for the first time, ensure they receive the Welcome notification
+    Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
+      if (!exists) {
+        createNotification(user._id, {
+          title: 'Welcome to Valley Express! 🚀',
+          body: `Welcome to Valley Express! Enjoy superfast delivery of chilled drinks, cold beers, snacks & night essentials across Kathmandu Valley. Use code VALLEYFIRST for 15% off your first order!`,
+          type: 'promo',
+          data: { code: 'VALLEYFIRST', url: '/offers' },
+        });
+      }
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -352,6 +386,18 @@ const resetPassword = async (req, res) => {
     await user.save();
 
     const token = generateToken(user._id, user.role);
+
+    // If customer logs in for the first time, ensure they receive the Welcome notification
+    Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
+      if (!exists) {
+        createNotification(user._id, {
+          title: 'Welcome to Valley Express! 🚀',
+          body: `Welcome to Valley Express! Enjoy superfast delivery of chilled drinks, cold beers, snacks & night essentials across Kathmandu Valley. Use code VALLEYFIRST for 15% off your first order!`,
+          type: 'promo',
+          data: { code: 'VALLEYFIRST', url: '/offers' },
+        });
+      }
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -493,6 +539,18 @@ const verifyOtp = async (req, res) => {
 
     const token = generateToken(user._id, user.role);
 
+    // If customer logs in for the first time, ensure they receive the Welcome notification
+    Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
+      if (!exists) {
+        createNotification(user._id, {
+          title: 'Welcome to Valley Express! 🚀',
+          body: `Welcome to Valley Express! Enjoy superfast delivery of chilled drinks, cold beers, snacks & night essentials across Kathmandu Valley. Use code VALLEYFIRST for 15% off your first order!`,
+          type: 'promo',
+          data: { code: 'VALLEYFIRST', url: '/offers' },
+        });
+      }
+    }).catch(() => {});
+
     res.json({
       success: true,
       message: 'Authentication successful',
@@ -517,7 +575,7 @@ const getMe = async (req, res) => {
   try {
     res.json({
       success: true,
-      user: req.user,
+      user: publicUser(req.user),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -584,8 +642,8 @@ const toggleRiderStatus = async (req, res) => {
 // Rider Direct Login using Phone/Login ID and Password set by Admin
 const riderLogin = async (req, res) => {
   try {
-    const { loginId, phone, password } = req.body;
-    const identifier = (loginId || phone || '').trim();
+    const { loginId, phone, identifier: ident, password } = req.body;
+    const identifier = (loginId || phone || ident || '').trim();
 
     if (!identifier || !password) {
       return res.status(400).json({ success: false, message: 'Login ID (Phone) and password are required' });
@@ -616,10 +674,6 @@ const riderLogin = async (req, res) => {
     let isMatch = false;
     if (rider.password) {
       isMatch = await bcrypt.compare(password, rider.password);
-    }
-    // Default initial password fallback
-    if (!isMatch && password === 'Rider@123') {
-      isMatch = true;
     }
 
     if (!isMatch) {

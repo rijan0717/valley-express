@@ -6,9 +6,12 @@ import '../../core/theme.dart';
 import '../../widgets/valley_loader.dart';
 import '../../core/socket_service.dart';
 import 'chat_screen.dart';
+import 'chat_inbox_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
-  const OrderTrackingScreen({super.key});
+  final String? orderId;
+
+  const OrderTrackingScreen({super.key, this.orderId});
 
   @override
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
@@ -290,7 +293,67 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                               isCurrent: false,
                               isDark: isDark,
                             ),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: 14),
+
+                            // Order Financial & Delivery Charge Breakdown
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.darkBgApp : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: isDark ? AppTheme.darkBorderCard : const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Delivery Charge',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Rs. ${order.deliveryFee}',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.navyBrand),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(width: 1, height: 26, color: Colors.grey.withOpacity(0.3)),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Items Subtotal',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Rs. ${order.subtotal}',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: isDark ? Colors.white70 : const Color(0xFF1E293B)),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(width: 1, height: 26, color: Colors.grey.withOpacity(0.3)),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      const Text(
+                                        'Total Paid/Due',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Rs. ${order.total}',
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.primaryOrange),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
 
                             // Two separate conversations: operations is always
                             // reachable, the rider only once they are
@@ -333,14 +396,24 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                             ),
                             const SizedBox(height: 10),
                             Builder(builder: (_) {
-                              const openFrom = ['picked_up', 'on_the_way', 'delivered'];
+                              final isDark = Theme.of(context).brightness == Brightness.dark;
+                              const openFrom = ['rider_assigned', 'picked_up', 'on_the_way', 'delivered'];
                               final riderReady = openFrom.contains(order.status) &&
-                                  (order.riderName ?? '').isNotEmpty;
+                                  (order.riderName != null && order.riderName!.trim().isNotEmpty);
+                              final riderLabel = (order.riderName ?? '').isNotEmpty
+                                  ? order.riderName!
+                                  : 'Assigned Rider';
+                              final activeColor = isDark ? Colors.white : AppTheme.navyBrand;
+
                               return OutlinedButton(
                                 style: OutlinedButton.styleFrom(
                                   side: BorderSide(
-                                    color: riderReady ? AppTheme.navyBrand : Colors.grey.shade400,
+                                    color: riderReady ? activeColor : Colors.grey.shade400,
+                                    width: 1.5,
                                   ),
+                                  backgroundColor: riderReady
+                                      ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F4FA))
+                                      : Colors.transparent,
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16)),
@@ -353,7 +426,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                               orderId: order.id,
                                               orderNo: order.orderNo,
                                               channel: ChatChannel.delivery,
-                                              title: order.riderName,
+                                              title: riderLabel,
                                             ),
                                           ),
                                         );
@@ -365,19 +438,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                     Icon(
                                       Icons.pedal_bike_rounded,
                                       size: 18,
-                                      color: riderReady ? AppTheme.navyBrand : Colors.grey,
+                                      color: riderReady ? activeColor : Colors.grey,
                                     ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
                                         riderReady
-                                            ? 'Chat with ${order.riderName}'
-                                            : 'Chat opens once your rider collects it',
+                                            ? 'Chat with $riderLabel'
+                                            : 'Chat opens once rider is assigned',
                                         textAlign: TextAlign.center,
                                         style: AppTheme.displayFont(
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w800,
-                                          color: riderReady ? AppTheme.navyBrand : Colors.grey,
+                                          color: riderReady ? activeColor : Colors.grey,
                                         ),
                                       ),
                                     ),
@@ -385,6 +458,25 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                 ),
                               );
                             }),
+                            const SizedBox(height: 8),
+                            Center(
+                              child: TextButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const ChatInboxScreen()),
+                                  );
+                                },
+                                icon: const Icon(Icons.forum_outlined, size: 15, color: AppTheme.primaryOrange),
+                                label: const Text(
+                                  'View All Messages & Chats ➔',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.primaryOrange,
+                                  ),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 10),
                           ],
                         ),

@@ -80,19 +80,23 @@ const createRider = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Rider name and phone are required' });
     }
 
+    if (!password || password.trim().length < 6) {
+      return res.status(400).json({ success: false, message: 'Rider password is required and must be at least 6 characters' });
+    }
+
     const cleanPhone = phone.trim();
     const existing = await User.findOne({ phone: cleanPhone });
     if (existing) {
       return res.status(400).json({ success: false, message: 'A user or rider with this phone already exists' });
     }
 
-    const rawPassword = (password && password.trim()) ? password.trim() : 'Rider@123';
+    const rawPassword = password.trim();
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     const rider = await User.create({
       name: name.trim(),
       phone: cleanPhone,
-      email: email ? email.trim() : undefined,
+      email: email ? email.trim().toLowerCase() : undefined,
       password: hashedPassword,
       role: 'rider',
       isOnline,
@@ -103,12 +107,14 @@ const createRider = async (req, res) => {
       ageConfirmed: true,
     });
 
+    const riderObj = rider.toObject();
+    delete riderObj.password;
+
     res.status(201).json({
       success: true,
-      message: 'Rider created successfully with direct mobile login credentials',
-      rider,
+      message: 'Rider enrolled successfully with secure credentials',
+      rider: riderObj,
       loginId: cleanPhone,
-      initialPassword: rawPassword,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -122,13 +128,16 @@ const updateRider = async (req, res) => {
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
     if (phone !== undefined) updateData.phone = phone.trim();
-    if (email !== undefined) updateData.email = email.trim();
+    if (email !== undefined) updateData.email = email.trim().toLowerCase();
     if (vehicleNumber !== undefined) updateData.vehicleNumber = vehicleNumber;
     if (vehicleType !== undefined) updateData.vehicleType = vehicleType;
     if (isOnline !== undefined) updateData.isOnline = isOnline;
     if (status !== undefined) updateData.status = status;
     if (currentCoordinates !== undefined) updateData.currentCoordinates = currentCoordinates;
     if (password && password.trim()) {
+      if (password.trim().length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+      }
       updateData.password = await bcrypt.hash(password.trim(), 10);
     }
 
@@ -136,7 +145,7 @@ const updateRider = async (req, res) => {
       { _id: req.params.id, role: 'rider' },
       updateData,
       { new: true, runValidators: true }
-    );
+    ).select('-password');
 
     if (!rider) {
       return res.status(404).json({ success: false, message: 'Rider not found' });
@@ -229,16 +238,33 @@ const updateRiderLocation = async (req, res) => {
 
 
 // GET /api/rider/stats (Rider)
-// The figures behind the rider's "works & earnings" grid. These were hard
-// coded in the app; they are derived from the rider's own orders here.
+// The figures behind the rider's "works & earnings" grid with dynamic date filter:
+// today | 3days | 1month | all
 const getRiderStats = async (req, res) => {
   try {
     const riderId = req.user._id;
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const filter = (req.query.filter || 'today').toLowerCase().trim();
 
-    const [todayCount, lifetimeCount, cashRows, activeCount] = await Promise.all([
-      Order.countDocuments({ rider: riderId, status: 'delivered', updatedAt: { $gte: startOfDay } }),
+    let startDate = null;
+    const now = new Date();
+
+    if (filter === 'today') {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (filter === '3days' || filter === '3_days' || filter === '3days_ago') {
+      startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (filter === '1month' || filter === '1_month' || filter === '30days') {
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (filter === 'all' || filter === 'all_time') {
+      startDate = null;
+    }
+
+    const dateMatch = startDate ? { updatedAt: { $gte: startDate } } : {};
+
+    const [filteredCount, lifetimeCount, cashRows, activeCount] = await Promise.all([
+      Order.countDocuments({ rider: riderId, status: 'delivered', ...dateMatch }),
       Order.countDocuments({ rider: riderId, status: 'delivered' }),
       Order.aggregate([
         {
@@ -246,7 +272,7 @@ const getRiderStats = async (req, res) => {
             rider: new mongoose.Types.ObjectId(String(riderId)),
             status: 'delivered',
             paymentMethod: 'cash_on_delivery',
-            updatedAt: { $gte: startOfDay },
+            ...dateMatch,
           },
         },
         { $group: { _id: null, total: { $sum: '$total' } } },
@@ -254,14 +280,39 @@ const getRiderStats = async (req, res) => {
       Order.countDocuments({ rider: riderId, status: { $in: ['rider_assigned', 'picked_up', 'on_the_way'] } }),
     ]);
 
+    const cashTotal = cashRows[0]?.total || 0;
+
     res.json({
       success: true,
+      filter,
       stats: {
-        todayDeliveries: todayCount,
+        todayDeliveries: filteredCount, // backwards compatible alias
+        filteredDeliveries: filteredCount,
         lifetimeRides: lifetimeCount,
-        cashCollectedToday: cashRows[0]?.total || 0,
+        cashCollectedToday: cashTotal, // backwards compatible alias
+        cashCollected: cashTotal,
         activeOrders: activeCount,
       },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/rider/fleet-summary (Rider & Admin)
+const getFleetSummary = async (req, res) => {
+  try {
+    const [totalRiders, onlineRiders, activeOrders] = await Promise.all([
+      User.countDocuments({ role: 'rider', status: 'active' }),
+      User.countDocuments({ role: 'rider', isOnline: true, status: 'active' }),
+      Order.countDocuments({ status: { $in: ['rider_assigned', 'picked_up', 'on_the_way'] } }),
+    ]);
+
+    res.json({
+      success: true,
+      totalRiders,
+      onlineRiders,
+      activeOrders,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -278,4 +329,5 @@ module.exports = {
   toggleRiderDuty,
   updateRiderLocation,
   getRiderStats,
+  getFleetSummary,
 };

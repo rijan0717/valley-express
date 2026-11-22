@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
-import '../../widgets/auth_tab_bar.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
@@ -19,10 +19,35 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _storage = const FlutterSecureStorage();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _submitting = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedCredentials();
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    try {
+      final remember = await _storage.read(key: 'valley_remember_me');
+      if (remember == 'true') {
+        final savedId = await _storage.read(key: 'valley_remembered_identifier');
+        final savedPass = await _storage.read(key: 'valley_remembered_password');
+        if (mounted) {
+          setState(() {
+            _rememberMe = true;
+            if (savedId != null && savedId.isNotEmpty) _identifierController.text = savedId;
+            if (savedPass != null && savedPass.isNotEmpty) _passwordController.text = savedPass;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -57,13 +82,25 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      if (_rememberMe) {
+        await _storage.write(key: 'valley_remember_me', value: 'true');
+        await _storage.write(key: 'valley_remembered_identifier', value: identifier);
+        await _storage.write(key: 'valley_remembered_password', value: password);
+      } else {
+        await _storage.delete(key: 'valley_remember_me');
+        await _storage.delete(key: 'valley_remembered_identifier');
+        await _storage.delete(key: 'valley_remembered_password');
+      }
+
       if (auth.user?.role == 'rider') {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const RiderHomeScreen()),
+          (route) => false,
         );
       } else {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+          (route) => false,
         );
       }
     } else {
@@ -92,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
         title: Text(
-          'Account Access',
+          'Sign In',
           style: AppTheme.displayFont(fontSize: 18, fontWeight: FontWeight.w800),
         ),
         titleSpacing: 0,
@@ -128,8 +165,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AuthTabBar(current: AuthTab.signIn),
-              const SizedBox(height: 16),
               const SizedBox(height: 10),
 
               // BRAND LOGO & HEADLINE
@@ -240,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: TextField(
                         controller: _identifierController,
@@ -250,8 +285,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                         ),
                         decoration: const InputDecoration(
-                          hintText: '98XXXXXXXX or email@example.com',
-                          prefixIcon: Icon(Icons.phone_iphone_rounded, color: AppTheme.primaryOrange, size: 20),
+                          hintText: 'email@example.com',
+                          prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryOrange, size: 20),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14),
                         ),
@@ -294,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: TextField(
                         controller: _passwordController,
@@ -320,7 +355,40 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 14),
+
+                    // REMEMBER ME CHECKBOX
+                    Row(
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: _rememberMe,
+                            activeColor: AppTheme.primaryOrange,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                            onChanged: (val) {
+                              setState(() => _rememberMe = val ?? false);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _rememberMe = !_rememberMe);
+                          },
+                          child: Text(
+                            'Remember Me',
+                            style: AppTheme.bodyFont(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
                     // SIGN IN BUTTON
                     ElevatedButton(
@@ -412,7 +480,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'New to Valley Express? ',
+                    "Don't have an account? ",
                     style: AppTheme.bodyFont(
                       fontSize: 13,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
@@ -425,7 +493,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     },
                     child: Text(
-                      'Create an account',
+                      'Register here',
                       style: AppTheme.displayFont(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,

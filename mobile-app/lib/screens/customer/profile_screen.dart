@@ -10,10 +10,12 @@ import '../../widgets/unread_badge.dart';
 import '../../widgets/valley_snackbar.dart';
 import 'my_orders_screen.dart';
 import 'chat_screen.dart';
+import 'chat_inbox_screen.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'map_address_picker_screen.dart';
 import '../auth/welcome_screen.dart';
+import '../common/raise_issue_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -671,14 +673,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildMenuItem(
                     icon: Icons.chat_bubble_outline_rounded,
                     iconColor: AppTheme.chilledIce,
-                    title: 'Live Chat with Store Admin',
-                    subtitle: 'Real-time inquiries & late night support',
+                    title: 'Messages & Order Chats',
+                    subtitle: 'Messenger inbox with riders & 24/7 support',
                     trailing: Consumer<ChatUnreadProvider>(
                       builder: (_, unread, __) => UnreadBadge(count: unread.total),
                     ),
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                        MaterialPageRoute(builder: (_) => const ChatInboxScreen()),
+                      );
+                    },
+                    isDark: isDark,
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 64,
+                    color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
+                  ),
+                  _buildMenuItem(
+                    icon: Icons.report_problem_outlined,
+                    iconColor: AppTheme.primaryOrange,
+                    title: 'Raise an Issue / Help Ticket',
+                    subtitle: 'Submit problem with order, delivery, or payment',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RaiseIssueScreen(userRole: 'customer')),
                       );
                     },
                     isDark: isDark,

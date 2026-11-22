@@ -290,7 +290,54 @@ const searchPlaces = async (req, res) => {
         });
       }
     } catch {
-      // If Nominatim times out or network is restricted, fallback is gracefully used
+      // If Nominatim times out or network is restricted, fallback to Photon
+    }
+
+    // 3. Fallback to Photon geocoder (OpenStreetMap powered, instant autocomplete)
+    if (osmResults.length === 0) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
+          query
+        )}&limit=10&lat=27.7172&lon=85.3240`;
+
+        const response = await fetch(photonUrl, {
+          headers: {
+            'User-Agent': 'ValleyExpressDeliveryApp/1.0',
+            'Accept-Language': 'en,ne',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          osmResults = (data.features || []).map((f) => {
+            const props = f.properties || {};
+            const coords = f.geometry?.coordinates || [85.33, 27.72];
+            const name = props.name || props.street || query;
+            const area = props.district || props.locality || props.city || '';
+            const city = props.city || props.state || 'Nepal';
+            const displayParts = [props.name, props.street, props.district, props.city, props.state, props.country].filter(Boolean);
+
+            return {
+              id: `photon-${props.osm_id || Math.random().toString(36).substring(7)}`,
+              name,
+              area: area || city,
+              city: city,
+              displayAddress: displayParts.length > 0 ? displayParts.join(', ') : `${name}, ${city}`,
+              latitude: parseFloat(coords[1]),
+              longitude: parseFloat(coords[0]),
+              source: 'photon',
+            };
+          });
+        }
+      } catch {
+        // Fallback gracefully
+      }
     }
 
     // Combine results, prioritising exact local landmark matches followed by
@@ -415,9 +462,152 @@ const reverseGeocode = async (req, res) => {
   }
 };
 
+/**
+ * Resolves a pasted Google Maps URL, short link, or coordinate string.
+ * Supports maps.app.goo.gl, goo.gl/maps, full Google Maps URLs, and raw coordinates.
+ */
+const resolveLocationUrl = async (req, res) => {
+  try {
+    const rawInput = (req.body?.url || req.query?.url || '').trim();
+    if (!rawInput) {
+      return res.status(400).json({ success: false, message: 'URL or coordinate text is required' });
+    }
+
+    // 1. Exact Google Maps Protobuf Place Pin (!3d{lat}!4d{lon}) — highest precision
+    const directProtobufMatch = rawInput.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+    if (directProtobufMatch) {
+      return res.json({
+        success: true,
+        latitude: parseFloat(directProtobufMatch[1]),
+        longitude: parseFloat(directProtobufMatch[2]),
+        source: 'google_maps_protobuf',
+      });
+    }
+
+    // 2. Query param pin (?q={lat},{lon} or ?ll={lat},{lon})
+    const qMatch = rawInput.match(/[?&](?:q|ll)=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+    if (qMatch) {
+      return res.json({
+        success: true,
+        latitude: parseFloat(qMatch[1]),
+        longitude: parseFloat(qMatch[2]),
+        source: 'google_maps_query',
+      });
+    }
+
+    // 3. Viewport camera center in URL (@{lat},{lon})
+    const viewportMatch = rawInput.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+    if (viewportMatch && /^https?:\/\//i.test(rawInput)) {
+      return res.json({
+        success: true,
+        latitude: parseFloat(viewportMatch[1]),
+        longitude: parseFloat(viewportMatch[2]),
+        source: 'google_maps_viewport',
+      });
+    }
+
+    // 4. Standalone raw coordinates string (e.g. "27.7280, 85.3300" or "@27.7280,85.3300")
+    const coordMatch = rawInput.match(/^@?(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)$/);
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1]);
+      const lon = parseFloat(coordMatch[2]);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        return res.json({
+          success: true,
+          latitude: lat,
+          longitude: lon,
+          source: 'coordinates',
+        });
+      }
+    }
+
+    // 3. If it looks like a URL (especially goo.gl / maps.app.goo.gl), follow redirects
+    if (/^https?:\/\//i.test(rawInput)) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const response = await fetch(rawInput, {
+          method: 'GET',
+          redirect: 'follow',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        const finalUrl = response.url || rawInput;
+
+        // Check resolved URL for coords
+        const finalProtobuf = finalUrl.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+        if (finalProtobuf) {
+          return res.json({
+            success: true,
+            latitude: parseFloat(finalProtobuf[1]),
+            longitude: parseFloat(finalProtobuf[2]),
+            resolvedUrl: finalUrl,
+            source: 'resolved_url_protobuf',
+          });
+        }
+
+        const finalAt = finalUrl.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+        if (finalAt) {
+          return res.json({
+            success: true,
+            latitude: parseFloat(finalAt[1]),
+            longitude: parseFloat(finalAt[2]),
+            resolvedUrl: finalUrl,
+            source: 'resolved_url_at',
+          });
+        }
+
+        const finalQ = finalUrl.match(/[?&](?:q|ll)=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+        if (finalQ) {
+          return res.json({
+            success: true,
+            latitude: parseFloat(finalQ[1]),
+            longitude: parseFloat(finalQ[2]),
+            resolvedUrl: finalUrl,
+            source: 'resolved_url_query',
+          });
+        }
+
+        // Try reading body for meta coordinates or center=
+        const bodyText = await response.text();
+        const metaMatch =
+          bodyText.match(/center=(-?\d{1,2}\.\d+)%2C(-?\d{1,3}\.\d+)/i) ||
+          bodyText.match(/itemprop="latitude"\s+content="(-?\d{1,2}\.\d+)".*?itemprop="longitude"\s+content="(-?\d{1,3}\.\d+)"/s) ||
+          bodyText.match(/\[null,null,(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)\]/);
+
+        if (metaMatch) {
+          return res.json({
+            success: true,
+            latitude: parseFloat(metaMatch[1]),
+            longitude: parseFloat(metaMatch[2]),
+            resolvedUrl: finalUrl,
+            source: 'resolved_html_meta',
+          });
+        }
+      } catch (netErr) {
+        // Network timeout on follow redirect
+      }
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'Could not extract valid coordinates from the provided Google Maps link or text.',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   searchPlaces,
   reverseGeocode,
   getPopularLocations,
+  resolveLocationUrl,
   KATHMANDU_VALLEY_LANDMARKS,
 };

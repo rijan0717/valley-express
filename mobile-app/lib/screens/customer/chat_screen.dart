@@ -90,13 +90,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _socket.socket?.on('chat:message', (data) {
       if (!mounted) return;
-      final msgOrderId = data['order'] is Map ? data['order']['_id'] : data['order'];
-      final msgCustomerId = data['customer'] is Map ? data['customer']['_id'] : data['customer'];
+      final String? msgOrderId = (data['order'] is Map ? data['order']['_id'] : data['order'])?.toString();
+      final String? msgCustomerId = (data['customer'] is Map ? data['customer']['_id'] : data['customer'])?.toString();
+      final String? currentUserId = auth.user?.id?.toString();
 
       final isOrderThread = widget.orderId != null;
       final bool belongsToThisThread = isOrderThread
-          ? (msgOrderId == widget.orderId)
-          : (msgOrderId == null && (auth.user?.id == null || msgCustomerId == auth.user!.id));
+          ? (msgOrderId != null && msgOrderId == widget.orderId.toString())
+          : (msgOrderId == null && (currentUserId == null || msgCustomerId == currentUserId));
 
       if (belongsToThisThread) {
         final msgId = data['_id'];

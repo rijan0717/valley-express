@@ -32,12 +32,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (auth.isAuthenticated) {
       if (auth.user?.role == 'rider') {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const RiderHomeScreen()),
+          (route) => false,
         );
       } else {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+          (route) => false,
         );
       }
     } else {

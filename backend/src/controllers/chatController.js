@@ -14,9 +14,8 @@ const CHANNELS = {
   fleet: ['rider', 'admin'],
 };
 
-// The customer may only message the rider once that rider is actually
-// carrying the order; before pickup there is nobody on the other end.
-const DELIVERY_OPEN_FROM = ['picked_up', 'on_the_way', 'delivered'];
+// The customer and rider may message each other as soon as a rider is assigned.
+const DELIVERY_OPEN_FROM = ['rider_assigned', 'picked_up', 'on_the_way', 'delivered'];
 
 const normaliseChannel = (value) => {
   const channel = String(value || 'support');
@@ -27,6 +26,21 @@ const normaliseChannel = (value) => {
 // 'general'. Resolves to the message filter for that thread and channel.
 const buildThreadQuery = (threadId, user, channel) => {
   const scope = { channel };
+  if (channel === 'fleet') {
+    if (mongoose.Types.ObjectId.isValid(threadId)) {
+      return {
+        ...scope,
+        $or: [
+          { order: threadId },
+          { rider: threadId },
+        ],
+      };
+    }
+    if (user.role === 'rider') {
+      return { ...scope, rider: user._id };
+    }
+    return scope;
+  }
   if (mongoose.Types.ObjectId.isValid(threadId)) {
     // Could be orderId or customerId
     return {
@@ -34,10 +48,14 @@ const buildThreadQuery = (threadId, user, channel) => {
       $or: [
         { order: threadId },
         { customer: threadId, order: null },
+        { rider: threadId, order: null },
       ],
     };
   }
   if (threadId === 'general') {
+    if (user.role === 'rider') {
+      return { ...scope, rider: user._id, order: null };
+    }
     return { ...scope, customer: user._id, order: null };
   }
   return { ...scope, order: threadId };
@@ -72,9 +90,11 @@ const authorizeThread = async (threadId, user, channel) => {
 
   const order = await Order.findById(threadId);
   if (!order) {
-    // Not an order id: a customer-scoped direct inquiry. Only that customer
-    // and operations may open it.
+    // Not an order id: customer or rider direct line
     if (user.role === 'customer' && String(user._id) !== String(threadId)) {
+      return { ok: false, status: 403, message: 'This conversation is not available to you' };
+    }
+    if (user.role === 'rider' && String(user._id) !== String(threadId)) {
       return { ok: false, status: 403, message: 'This conversation is not available to you' };
     }
     return { ok: true, order: null };
@@ -136,16 +156,29 @@ const sendMessage = async (req, res) => {
     }
 
     const order = allowed.order;
-    let customerId = req.user?._id;
+    let customerId = null;
+    let riderId = null;
     if (order) {
-      customerId = order.customer?._id || order.customer || req.user?._id;
+      customerId = order.customer?._id || order.customer;
+      riderId = order.rider?._id || order.rider;
+    } else if (channel === 'fleet') {
+      if (req.user.role === 'rider') {
+        riderId = req.user._id;
+      } else if (mongoose.Types.ObjectId.isValid(orderId)) {
+        riderId = orderId;
+      }
+    } else if (req.user.role === 'customer') {
+      customerId = req.user._id;
+    } else if (mongoose.Types.ObjectId.isValid(orderId)) {
+      // Admin replying to direct customer inquiry
+      customerId = orderId;
     }
 
     const message = await Message.create({
       order: order ? order._id : null,
-      customer: req.user.role === 'rider' && !order ? null : customerId,
+      customer: (channel === 'fleet' || (req.user.role === 'rider' && !order)) ? null : customerId,
       // Pinned so a rider's threads are findable without re-reading the order.
-      rider: channel === 'support' ? null : (order?.rider || (req.user.role === 'rider' ? req.user._id : null)),
+      rider: channel === 'support' ? null : (order?.rider || riderId || (req.user.role === 'rider' ? req.user._id : null)),
       sender: req.user?._id,
       // Taken from the authenticated session, never the request body: the
       // previous version let a caller label themselves 'admin'.
@@ -155,17 +188,19 @@ const sendMessage = async (req, res) => {
     });
     const populated = await Message.findById(message._id).populate('sender', 'name role');
 
-    // Broadcast in real-time, but only to the parties in this channel.
+    // Broadcast in real-time to order and personal recipient rooms.
     try {
       const io = getIO();
       if (order) {
+        io.to(`order:${order._id}`).emit('chat:message', populated);
         io.to(`order:${order._id}:${channel}`).emit('chat:message', populated);
       }
       if (channel !== 'fleet' && customerId) {
         io.to(`user:${customerId}`).emit('chat:message', populated);
       }
-      if (channel !== 'support' && populated.rider) {
-        io.to(`user:${populated.rider}`).emit('chat:message', populated);
+      if (channel !== 'support' && (populated.rider || riderId)) {
+        const targetRider = populated.rider || riderId;
+        io.to(`user:${targetRider}`).emit('chat:message', populated);
       }
       if (channel !== 'delivery') {
         io.to('admin-room').emit('chat:message', populated);
@@ -186,27 +221,42 @@ const getAdminChatThreads = async (req, res) => {
     // 1. Orders with active messages or in-flight status
     const orders = await Order.find({ status: { $nin: ['cancelled', 'rejected'] } })
       .populate('customer', 'name phone')
+      .populate('rider', 'name phone vehicleNumber')
       .sort({ updatedAt: -1 })
-      .limit(20);
+      .limit(30);
 
-    // 2. Also fetch any customers who sent direct inquiries without an order
+    const orderThreads = orders.map((o) => ({
+      _id: o._id,
+      orderNo: o.orderNo,
+      customer: o.customer,
+      rider: o.rider,
+      status: o.status,
+      deliveryAddress: o.deliveryAddress,
+      threadType: 'customer',
+      channel: 'support',
+      updatedAt: o.updatedAt,
+    }));
+
+    // 2. Direct customer inquiries
     const generalMessages = await Message.find({ order: null, channel: 'support' })
       .populate('customer', 'name phone')
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(15);
 
     const seenCustomers = new Set();
-    const generalThreads = [];
+    const customerGeneralThreads = [];
 
     for (const msg of generalMessages) {
       if (msg.customer && !seenCustomers.has(msg.customer._id.toString())) {
         seenCustomers.add(msg.customer._id.toString());
-        generalThreads.push({
+        customerGeneralThreads.push({
           _id: msg.customer._id,
           orderNo: 'SUPPORT-GENERAL',
           customer: msg.customer,
           status: 'Direct Inquiry',
           deliveryAddress: { addressText: 'Kathmandu Customer Support' },
+          threadType: 'customer',
+          channel: 'support',
           isGeneralInquiry: true,
           lastMessage: msg.text,
           updatedAt: msg.createdAt,
@@ -214,7 +264,57 @@ const getAdminChatThreads = async (req, res) => {
       }
     }
 
-    const combinedThreads = [...generalThreads, ...orders];
+    // 3. Rider fleet messages
+    const fleetMessages = await Message.find({ channel: 'fleet' })
+      .populate('rider', 'name phone vehicleNumber isOnline')
+      .sort({ createdAt: -1 })
+      .limit(30);
+
+    const seenRiders = new Set();
+    const riderThreads = [];
+
+    for (const msg of fleetMessages) {
+      if (msg.rider && !seenRiders.has(msg.rider._id.toString())) {
+        seenRiders.add(msg.rider._id.toString());
+        riderThreads.push({
+          _id: msg.rider._id,
+          orderNo: `FLEET-${msg.rider.name.toUpperCase().replace(/\s+/g, '-')}`,
+          rider: msg.rider,
+          customer: { name: `${msg.rider.name} (Rider)`, phone: msg.rider.phone },
+          status: msg.rider.isOnline ? 'Online on Duty' : 'Duty Paused',
+          deliveryAddress: { addressText: `Vehicle: ${msg.rider.vehicleNumber || 'Valley Fleet Rider'}` },
+          threadType: 'rider',
+          channel: 'fleet',
+          isFleetRider: true,
+          lastMessage: msg.text,
+          updatedAt: msg.createdAt,
+        });
+      }
+    }
+
+    // Also include active riders so admin can initiate contact with any rider
+    const activeRiders = await User.find({ role: 'rider', status: 'active' })
+      .select('name phone vehicleNumber isOnline updatedAt')
+      .limit(10);
+    for (const r of activeRiders) {
+      if (!seenRiders.has(r._id.toString())) {
+        seenRiders.add(r._id.toString());
+        riderThreads.push({
+          _id: r._id,
+          orderNo: `FLEET-${r.name.toUpperCase().replace(/\s+/g, '-')}`,
+          rider: r,
+          customer: { name: `${r.name} (Rider)`, phone: r.phone },
+          status: r.isOnline ? 'Online on Duty' : 'Standby',
+          deliveryAddress: { addressText: `Vehicle: ${r.vehicleNumber || 'Valley Fleet Rider'}` },
+          threadType: 'rider',
+          channel: 'fleet',
+          isFleetRider: true,
+          updatedAt: r.updatedAt || new Date(),
+        });
+      }
+    }
+
+    const combinedThreads = [...customerGeneralThreads, ...riderThreads, ...orderThreads];
 
     res.json({ success: true, count: combinedThreads.length, threads: combinedThreads });
   } catch (error) {
@@ -337,11 +437,203 @@ const markThreadRead = async (req, res) => {
   }
 };
 
+// GET /api/chat/conversations
+// Returns a messenger-style list of distinct conversation threads for the logged-in customer or rider.
+const getUserConversations = async (req, res) => {
+  try {
+    const user = req.user;
+    const conversations = [];
+
+    if (user.role === 'customer') {
+      // 1. General Valley Dispatch & Support line
+      const generalLastMsg = await Message.findOne({
+        customer: user._id,
+        order: null,
+        channel: 'support',
+      }).sort({ createdAt: -1 });
+
+      const generalUnread = await Message.countDocuments({
+        customer: user._id,
+        order: null,
+        channel: 'support',
+        senderRole: { $ne: 'customer' },
+        isRead: false,
+      });
+
+      conversations.push({
+        threadId: 'general',
+        orderId: null,
+        orderNo: null,
+        channel: 'support',
+        type: 'support',
+        title: 'Valley Dispatch & Operations',
+        subtitle: 'Official Support Helpdesk • 24/7',
+        avatarType: 'support',
+        status: 'online',
+        lastMessage: generalLastMsg ? generalLastMsg.text : 'Need help with your orders or deliveries? Message our dispatch team anytime.',
+        lastMessageTime: generalLastMsg ? generalLastMsg.createdAt : user.createdAt,
+        unreadCount: generalUnread,
+      });
+
+      // 2. All orders belonging to this customer
+      const orders = await Order.find({ customer: user._id })
+        .populate('rider', 'name phone vehicleNumber vehicleType isOnline')
+        .sort({ createdAt: -1 })
+        .limit(50);
+
+      for (const order of orders) {
+        // If rider is assigned, create a delivery chat thread with the rider
+        if (order.rider) {
+          const riderLastMsg = await Message.findOne({
+            order: order._id,
+            channel: 'delivery',
+          }).sort({ createdAt: -1 });
+
+          const riderUnread = await Message.countDocuments({
+            order: order._id,
+            channel: 'delivery',
+            senderRole: { $ne: 'customer' },
+            isRead: false,
+          });
+
+          conversations.push({
+            threadId: String(order._id),
+            orderId: String(order._id),
+            orderNo: order.orderNo,
+            orderStatus: order.status,
+            channel: 'delivery',
+            type: 'rider',
+            title: order.rider.name || 'Assigned Rider',
+            subtitle: `Rider for Order #${order.orderNo}`,
+            riderName: order.rider.name,
+            riderPhone: order.rider.phone,
+            riderVehicle: order.rider.vehicleNumber,
+            avatarType: 'rider',
+            status: order.rider.isOnline ? 'Online on Duty' : 'On Route',
+            lastMessage: riderLastMsg ? riderLastMsg.text : `Rider assigned to order #${order.orderNo}. Tap to chat.`,
+            lastMessageTime: riderLastMsg ? riderLastMsg.createdAt : order.updatedAt,
+            unreadCount: riderUnread,
+          });
+        }
+
+        // Check if there are support messages for this specific order
+        const supportLastMsg = await Message.findOne({
+          order: order._id,
+          channel: 'support',
+        }).sort({ createdAt: -1 });
+
+        if (supportLastMsg) {
+          const supportUnread = await Message.countDocuments({
+            order: order._id,
+            channel: 'support',
+            senderRole: { $ne: 'customer' },
+            isRead: false,
+          });
+
+          conversations.push({
+            threadId: String(order._id),
+            orderId: String(order._id),
+            orderNo: order.orderNo,
+            orderStatus: order.status,
+            channel: 'support',
+            type: 'support',
+            title: `Order #${order.orderNo} Support`,
+            subtitle: `Operations query for #${order.orderNo}`,
+            avatarType: 'support',
+            status: order.status,
+            lastMessage: supportLastMsg.text,
+            lastMessageTime: supportLastMsg.createdAt,
+            unreadCount: supportUnread,
+          });
+        }
+      }
+    } else if (user.role === 'rider') {
+      // 1. Dispatch Fleet line
+      const fleetLastMsg = await Message.findOne({
+        rider: user._id,
+        channel: 'fleet',
+      }).sort({ createdAt: -1 });
+
+      const fleetUnread = await Message.countDocuments({
+        rider: user._id,
+        channel: 'fleet',
+        senderRole: { $ne: 'rider' },
+        isRead: false,
+      });
+
+      conversations.push({
+        threadId: 'general',
+        orderId: null,
+        orderNo: null,
+        channel: 'fleet',
+        type: 'support',
+        title: 'Operations Fleet Dispatch',
+        subtitle: 'Kathmandu Central Fleet Control',
+        avatarType: 'support',
+        status: 'online',
+        lastMessage: fleetLastMsg ? fleetLastMsg.text : 'Direct line to Operations Dispatch. Report delays or vehicle issues.',
+        lastMessageTime: fleetLastMsg ? fleetLastMsg.createdAt : user.createdAt,
+        unreadCount: fleetUnread,
+      });
+
+      // 2. Orders assigned to this rider
+      const assignedOrders = await Order.find({ rider: user._id })
+        .populate('customer', 'name phone')
+        .sort({ updatedAt: -1 })
+        .limit(50);
+
+      for (const order of assignedOrders) {
+        const deliveryLastMsg = await Message.findOne({
+          order: order._id,
+          channel: 'delivery',
+        }).sort({ createdAt: -1 });
+
+        const deliveryUnread = await Message.countDocuments({
+          order: order._id,
+          channel: 'delivery',
+          senderRole: { $ne: 'rider' },
+          isRead: false,
+        });
+
+        conversations.push({
+          threadId: String(order._id),
+          orderId: String(order._id),
+          orderNo: order.orderNo,
+          orderStatus: order.status,
+          channel: 'delivery',
+          type: 'customer',
+          title: order.customer?.name || 'Customer',
+          subtitle: `Customer for Order #${order.orderNo}`,
+          customerName: order.customer?.name,
+          customerPhone: order.customer?.phone || order.deliveryAddress?.contactPhone,
+          deliveryAddress: order.deliveryAddress?.addressText || order.address?.addressText,
+          avatarType: 'customer',
+          status: order.status,
+          lastMessage: deliveryLastMsg ? deliveryLastMsg.text : `Delivery line open for Order #${order.orderNo}`,
+          lastMessageTime: deliveryLastMsg ? deliveryLastMsg.createdAt : order.updatedAt,
+          unreadCount: deliveryUnread,
+        });
+      }
+    } else {
+      // Admin: redirect to getAdminChatThreads logic
+      return getAdminChatThreads(req, res);
+    }
+
+    // Sort all conversations by lastMessageTime descending (most recent first, like Messenger)
+    conversations.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+
+    res.json({ success: true, count: conversations.length, conversations });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getMessagesByOrder,
   sendMessage,
   getAdminChatThreads,
   getFleetChatThreads,
+  getUserConversations,
   getUnreadCount,
   markThreadRead,
 };

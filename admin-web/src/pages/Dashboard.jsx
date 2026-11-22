@@ -6,6 +6,44 @@ import { useModal } from '../context/ModalContext';
 import { Link } from 'react-router-dom';
 import ValleyLoader from '../components/ValleyLoader';
 
+const ClockIcon = ({ size = 12, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const formatTimeAgo = (rawDate) => {
+  if (!rawDate) return '';
+  const dt = new Date(rawDate);
+  if (Number.isNaN(dt.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now.getTime() - dt.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 45) return 'Just now';
+
+  const diffMins = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays >= 1) {
+    return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+  }
+
+  if (diffHours >= 1) {
+    const remMins = diffMins % 60;
+    const hourPart = diffHours === 1 ? '1 hour' : `${diffHours} hours`;
+    if (remMins === 0) {
+      return `${hourPart} ago`;
+    }
+    const minPart = remMins === 1 ? '1 min' : `${remMins} mins`;
+    return `${hourPart} ${minPart} ago`;
+  }
+
+  return diffMins <= 1 ? '1 min ago' : `${diffMins} mins ago`;
+};
+
 const Dashboard = ({ onReplaySplash }) => {
   const { showAlert, showToast } = useModal();
   const [orders, setOrders] = useState([]);
@@ -290,7 +328,13 @@ const Dashboard = ({ onReplaySplash }) => {
                         const landmark = order.deliveryAddress?.landmark || order.address?.landmark;
                         return (
                           <tr key={order._id}>
-                            <td style={{ fontWeight: 700, color: '#003893' }}>{order.orderNo}</td>
+                            <td style={{ fontWeight: 700, color: '#003893' }}>
+                              <div>{order.orderNo}</div>
+                              <div style={{ fontSize: '11px', color: '#FF6B1A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                                <ClockIcon size={11} color="#FF6B1A" />
+                                <span>{formatTimeAgo(order.createdAt)}</span>
+                              </div>
+                            </td>
                             <td>
                               <div style={{ fontWeight: 500 }}>{order.customer?.name || 'Customer'}</div>
                               <div style={{ fontSize: '11px', color: '#1F2A44' }}>{order.customer?.phone}</div>
@@ -315,8 +359,13 @@ const Dashboard = ({ onReplaySplash }) => {
                                 )}
                               </span>
                             </td>
-                            <td style={{ fontWeight: 700, color: '#FF6B1A' }}>
-                              Rs. {order.total?.toLocaleString()}
+                            <td>
+                              <div style={{ fontWeight: 700, color: '#FF6B1A' }}>
+                                Rs. {order.total?.toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: '10px', color: '#003893', fontWeight: 600, marginTop: '2px' }}>
+                                Delivery: Rs. {(order.deliveryFee ?? 50).toLocaleString()}
+                              </div>
                             </td>
                             <td>
                               <span

@@ -5,8 +5,9 @@ import { LogoFull } from '../components/Logo';
 import ValleyLoader from '../components/ValleyLoader';
 
 const Login = () => {
-  const [email, setEmail] = useState('admin@gmail.com');
-  const [password, setPassword] = useState('Password@123');
+  const [email, setEmail] = useState(() => localStorage.getItem('valley_remember_email') || 'admin@gmail.com');
+  const [password, setPassword] = useState(() => localStorage.getItem('valley_remember_password') || 'Password@123');
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('valley_remember_me') === 'true');
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
@@ -31,6 +32,15 @@ const Login = () => {
 
     const res = await login(email, password);
     if (res.success) {
+      if (rememberMe) {
+        localStorage.setItem('valley_remember_me', 'true');
+        localStorage.setItem('valley_remember_email', email.trim());
+        localStorage.setItem('valley_remember_password', password);
+      } else {
+        localStorage.removeItem('valley_remember_me');
+        localStorage.removeItem('valley_remember_email');
+        localStorage.removeItem('valley_remember_password');
+      }
       navigate('/');
     } else {
       setError(res.message);
@@ -102,7 +112,7 @@ const Login = () => {
               />
             </div>
 
-            <div className="form-group" style={{ marginBottom: '24px' }}>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
               <label className="form-label">Password</label>
               <input
                 type="password"
@@ -112,6 +122,18 @@ const Login = () => {
                 placeholder="Password@123"
                 autoComplete="current-password"
               />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '22px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#1F2A44', fontWeight: 500, userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#003893', cursor: 'pointer' }}
+                />
+                <span>Remember Me</span>
+              </label>
             </div>
 
             <button

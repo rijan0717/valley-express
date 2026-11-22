@@ -23,12 +23,17 @@ if not defined MONGOD (
     exit /b 1
 )
 
-if not exist "%ROOT%\backend\data\db" mkdir "%ROOT%\backend\data\db"
+if exist "%ROOT%\data\db" (
+    set "DB_PATH=%ROOT%\data\db"
+) else (
+    set "DB_PATH=%ROOT%\backend\data\db"
+    if not exist "%ROOT%\backend\data\db" mkdir "%ROOT%\backend\data\db"
+)
 
 REM Start mongod if port 27017 is not already serving
 netstat -ano | findstr /r /c:"LISTENING.*:27017 " >nul 2>&1
 if errorlevel 1 (
-    start "MongoDB Daemon" "%MONGOD%" --dbpath "%ROOT%\backend\data\db" --port 27017
+    start "MongoDB Daemon" "%MONGOD%" --dbpath "%DB_PATH%" --port 27017
     timeout /t 3 /nobreak >nul
 ) else (
     echo MongoDB already listening on 27017 - reusing it.

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -51,6 +53,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   final _searchController = TextEditingController();
   final _landmarkController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _googleMapsLinkController = TextEditingController();
 
   MapLibreMapController? _mapController;
   late double _currentLat;
@@ -335,6 +338,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     _formattedAddress = '${widget.initialAddress}, Nepal';
     _landmarkController.text = widget.initialLandmark;
     _reverseGeocode(_currentLat, _currentLon);
+    _landmarkController.addListener(_onLandmarkChanged);
 
     // Pre-fill the delivery contact from the signed-in account rather than a
     // fixed test number, which riders would otherwise be handed verbatim.
@@ -344,11 +348,24 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
 
   @override
   void dispose() {
+    _landmarkController.removeListener(_onLandmarkChanged);
     _searchController.dispose();
     _landmarkController.dispose();
     _phoneController.dispose();
+    _googleMapsLinkController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void _onLandmarkChanged() {
+    final text = _landmarkController.text.trim();
+    if (text.contains('maps.app.goo.gl') ||
+        text.contains('goo.gl/maps') ||
+        text.contains('google.com/maps') ||
+        RegExp(r'@?(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)').hasMatch(text)) {
+      _parseAndApplyLocation(text);
+      _landmarkController.clear();
+    }
   }
 
   Future<void> _useCurrentLocation() async {
@@ -484,6 +501,20 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       return;
     }
 
+    // Check if query is a Google Maps link or coordinates
+    if (trimmed.contains('maps') ||
+        trimmed.contains('goo.gl') ||
+        RegExp(r'@?(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)').hasMatch(trimmed)) {
+      final handled = await _parseAndApplyLocation(trimmed);
+      if (handled) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+        return;
+      }
+    }
+
     _searchedTerm = trimmed;
     setState(() => _isSearching = true);
 
@@ -595,6 +626,302 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     );
 
     FocusScope.of(context).unfocus();
+  }
+
+  void _applyNewCoordinates(double lat, double lon, {String? customTitle}) {
+    setState(() {
+      _currentLat = lat;
+      _currentLon = lon;
+      _currentZoom = 17.0;
+      if (customTitle != null && customTitle.isNotEmpty) {
+        _addressTitle = customTitle;
+      }
+    });
+
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(lat, lon),
+          zoom: 17.0,
+        ),
+      ),
+    );
+
+    _reverseGeocode(lat, lon);
+  }
+
+  Future<void> _openInGoogleMaps() async {
+    final urlString = 'https://www.google.com/maps/search/?api=1&query=$_currentLat,$_currentLon';
+    final uri = Uri.parse(urlString);
+    try {
+      if (kIsWeb) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.platformDefault,
+          webOnlyWindowName: '_blank',
+        );
+      } else {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
+        }
+      }
+      _showLocationMessage('Redirecting to Google Maps… Copy your location and paste it here.');
+    } catch (e) {
+      _showLocationMessage('Could not open Google Maps: $e');
+    }
+  }
+
+  Future<bool> _parseAndApplyLocation(String rawText) async {
+    final text = rawText.trim();
+    if (text.isEmpty) {
+      _showLocationMessage('Please enter or paste a Google Maps link or coordinates.');
+      return false;
+    }
+
+    _googleMapsLinkController.text = text;
+
+    // 1. Direct regex checks for coordinates or protobuf url
+    final protoRegex = RegExp(r'!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)');
+    final qRegex = RegExp(r'[?&](?:q|ll)=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)');
+    final coordRegex = RegExp(r'@?(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)');
+
+    Match? match = protoRegex.firstMatch(text);
+    match ??= qRegex.firstMatch(text);
+    match ??= coordRegex.firstMatch(text);
+
+    if (match != null) {
+      final lat = double.tryParse(match.group(1) ?? '');
+      final lon = double.tryParse(match.group(2) ?? '');
+      if (lat != null && lon != null) {
+        _applyNewCoordinates(lat, lon);
+        _showLocationMessage('Location updated from Google Maps (${lat.toStringAsFixed(4)}, ${lon.toStringAsFixed(4)})');
+        return true;
+      }
+    }
+
+    // 2. If it's a link (like maps.app.goo.gl or goo.gl/maps), resolve via backend
+    if (text.toLowerCase().startsWith('http://') || text.toLowerCase().startsWith('https://')) {
+      _showLocationMessage('Resolving Google Maps link…');
+      try {
+        final res = await _api.dio.post('/maps/resolve-url', data: {'url': text});
+        if (res.data['success'] == true) {
+          final lat = (res.data['latitude'] as num).toDouble();
+          final lon = (res.data['longitude'] as num).toDouble();
+          _applyNewCoordinates(lat, lon);
+          _showLocationMessage('Google Maps location pinpointed (${lat.toStringAsFixed(4)}, ${lon.toStringAsFixed(4)})');
+          return true;
+        }
+      } catch (err) {
+        _showLocationMessage('Could not extract coordinates from this link. Try copying the coordinates directly.');
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _showPasteLocationDialog() async {
+    final pasteController = TextEditingController();
+
+    // Check clipboard automatically for quick pre-fill
+    try {
+      final clipData = await Clipboard.getData(Clipboard.kTextPlain);
+      if (clipData?.text != null && clipData!.text!.trim().isNotEmpty) {
+        final clipText = clipData.text!.trim();
+        if (clipText.contains('maps') ||
+            clipText.contains('goo.gl') ||
+            RegExp(r'(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)').hasMatch(clipText)) {
+          pasteController.text = clipText;
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        bool isResolving = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFCA5A5)),
+                          ),
+                          child: const Icon(Icons.location_on_rounded, color: Color(0xFFDC2626), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Paste Google Maps Location',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1F2A44),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Share link, maps URL, or coordinates',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link_rounded, color: Color(0xFF94A3B8), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: pasteController,
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              decoration: const InputDecoration(
+                                hintText: 'https://maps.app.goo.gl/... or 27.7280, 85.3300',
+                                hintStyle: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                isDense: true,
+                                filled: false,
+                                fillColor: Colors.transparent,
+                              ),
+                              maxLines: 2,
+                              minLines: 1,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.content_paste_go_rounded, size: 20, color: AppTheme.accent),
+                            tooltip: 'Paste from clipboard',
+                            onPressed: () async {
+                              final data = await Clipboard.getData(Clipboard.kTextPlain);
+                              if (data?.text != null) {
+                                setModalState(() {
+                                  pasteController.text = data!.text!.trim();
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        // Redirect to Google Maps button
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1E40AF),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: _openInGoogleMaps,
+                            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                            label: const Text(
+                              'Open Maps',
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Apply button
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: isResolving
+                                ? null
+                                : () async {
+                                    setModalState(() => isResolving = true);
+                                    final success = await _parseAndApplyLocation(pasteController.text);
+                                    setModalState(() => isResolving = false);
+                                    if (success && mounted) {
+                                      Navigator.of(ctx).pop();
+                                    }
+                                  },
+                            icon: isResolving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.check_circle_outline_rounded, size: 18),
+                            label: Text(
+                              isResolving ? 'Locating…' : 'Apply Location',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _confirmLocation() {
@@ -947,52 +1274,88 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                     ),
                   ),
 
-                // Popular Hub Chips
+                // Popular Hub & Google Maps Action Chips
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 32,
-                  child: ListView.separated(
+                  child: ListView(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _popularZones.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 6),
-                    itemBuilder: (context, idx) {
-                      final zone = _popularZones[idx];
-                      return ActionChip(
-                        avatar: const Icon(Icons.place_outlined, size: 14, color: Color(0xFF003893)),
-                        label: Text(
-                          zone['name'],
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF003893)),
+                    children: [
+                      // Google Maps Redirect Chip
+                      ActionChip(
+                        avatar: const Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFFEA4335)),
+                        label: const Text(
+                          'Google Maps ↗',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFEA4335)),
                         ),
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1),
+                        backgroundColor: const Color(0xFFFEF2F2),
+                        side: const BorderSide(color: Color(0xFFFCA5A5), width: 1),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _currentLat = zone['lat'];
-                            _currentLon = zone['lon'];
-                            _addressTitle = zone['name'];
-                            _formattedAddress = zone['full'] ?? '${zone['name']}, Nepal';
-                            if (zone['landmark'] != null) {
-                              _landmarkController.text = zone['landmark'];
-                            }
-                            _searchResults = [];
-                            _searchedTerm = '';
-                            _isSearching = false;
-                            _currentZoom = 16.0;
-                          });
-                          _mapController?.animateCamera(
-                            CameraUpdate.newCameraPosition(
-                              CameraPosition(
-                                target: LatLng(zone['lat'], zone['lon']),
-                                zoom: 16.0,
-                              ),
-                            ),
-                          );
+                        onPressed: _openInGoogleMaps,
+                      ),
+                      const SizedBox(width: 6),
+                      // Paste from Google Maps Chip
+                      ActionChip(
+                        avatar: const Icon(Icons.content_paste_rounded, size: 14, color: Color(0xFF003893)),
+                        label: const Text(
+                          'Paste Maps Link',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF003893)),
+                        ),
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        side: const BorderSide(color: Color(0xFFBFDBFE), width: 1),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        onPressed: () async {
+                          final clip = await Clipboard.getData(Clipboard.kTextPlain);
+                          if (clip?.text != null && clip!.text!.trim().isNotEmpty) {
+                            _googleMapsLinkController.text = clip.text!.trim();
+                            _parseAndApplyLocation(clip.text!.trim());
+                          } else {
+                            _showPasteLocationDialog();
+                          }
                         },
-                      );
-                    },
+                      ),
+                      const SizedBox(width: 6),
+                      ..._popularZones.map((zone) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.place_outlined, size: 14, color: Color(0xFF003893)),
+                          label: Text(
+                            zone['name'],
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF003893)),
+                          ),
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0xFFCBD5E1), width: 1),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _currentLat = zone['lat'];
+                              _currentLon = zone['lon'];
+                              _addressTitle = zone['name'];
+                              _formattedAddress = zone['full'] ?? '${zone['name']}, Nepal';
+                              if (zone['landmark'] != null) {
+                                _landmarkController.text = zone['landmark'];
+                              }
+                              _searchResults = [];
+                              _searchedTerm = '';
+                              _isSearching = false;
+                              _currentZoom = 16.0;
+                            });
+                            _mapController?.animateCamera(
+                              CameraUpdate.newCameraPosition(
+                                CameraPosition(
+                                  target: LatLng(zone['lat'], zone['lon']),
+                                  zoom: 16.0,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      )),
+                    ],
                   ),
                 ),
               ],
@@ -1032,6 +1395,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                   icon: Icons.share_location_rounded,
                   tooltip: 'Share Pin',
                   onTap: _shareLocation,
+                ),
+                const SizedBox(height: 8),
+                _buildMapFloatingBtn(
+                  icon: Icons.open_in_new_rounded,
+                  tooltip: 'Open in Google Maps',
+                  color: const Color(0xFFEA4335),
+                  onTap: _openInGoogleMaps,
                 ),
               ],
             ),
@@ -1147,7 +1517,170 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
+
+                    // Google Maps Location Section (Direct Input & Redirect)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Two Primary Action Buttons: Open in Google Maps OR Paste from Clipboard
+                          Row(
+                            children: [
+                              // Option 1: Open / Redirect to Google Maps
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _openInGoogleMaps,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF2F2),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFFEA4335)),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Open Google Maps ↗',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFFEA4335),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Option 2: Quick Paste from Clipboard
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final clip = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (clip?.text != null && clip!.text!.trim().isNotEmpty) {
+                                      _googleMapsLinkController.text = clip.text!.trim();
+                                      _parseAndApplyLocation(clip.text!.trim());
+                                    } else {
+                                      _showPasteLocationDialog();
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.content_paste_rounded, size: 14, color: Color(0xFF1D4ED8)),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Paste Location',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1D4ED8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Direct Paste Input Field with Apply Button
+                          Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            padding: const EdgeInsets.only(left: 10, right: 4),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.link_rounded, size: 18, color: Color(0xFF94A3B8)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _googleMapsLinkController,
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Paste Google Maps link or coordinates...',
+                                      hintStyle: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      filled: false,
+                                      fillColor: Colors.transparent,
+                                    ),
+                                    onSubmitted: (val) => _parseAndApplyLocation(val),
+                                  ),
+                                ),
+                                if (_googleMapsLinkController.text.isNotEmpty)
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _googleMapsLinkController.clear();
+                                      });
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4.0),
+                                      child: Icon(Icons.close_rounded, size: 15, color: Color(0xFF94A3B8)),
+                                    ),
+                                  ),
+                                InkWell(
+                                  onTap: () {
+                                    if (_googleMapsLinkController.text.trim().isNotEmpty) {
+                                      _parseAndApplyLocation(_googleMapsLinkController.text.trim());
+                                    } else {
+                                      _showPasteLocationDialog();
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.accent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'Apply',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
 
                     // Landmark text input
                     Container(
@@ -1170,8 +1703,12 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                 hintText: 'Nearby Landmark / Gate / House No. (Optional)',
                                 hintStyle: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,
+                                filled: false,
+                                fillColor: Colors.transparent,
                               ),
                             ),
                           ),

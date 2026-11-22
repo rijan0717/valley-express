@@ -1,6 +1,8 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Setting = require('../models/Setting');
+const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 // GET /api/products
 const getProducts = async (req, res) => {
@@ -87,6 +89,20 @@ const createProduct = async (req, res) => {
 
     const populatedProduct = await Product.findById(product._id).populate('category');
 
+    // If product has a special discount price, notify customers
+    if (discountPrice && Number(discountPrice) < Number(price)) {
+      User.find({ role: 'customer' }).select('_id').then((customers) => {
+        customers.forEach((c) => {
+          createNotification(c._id, {
+            title: `Product Deal: ${product.name}! 🔥`,
+            body: `Now on sale for Rs. ${product.discountPrice} (Reduced from Rs. ${product.price})! Tap to order.`,
+            type: 'promo',
+            data: { productId: product._id, url: `/product/${product._id}` },
+          });
+        });
+      }).catch(() => {});
+    }
+
     res.status(201).json({ success: true, message: 'Product created successfully', product: populatedProduct });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -108,6 +124,20 @@ const updateProduct = async (req, res) => {
 
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    // If product is put on offer or discountPrice is set
+    if (updateData.discountPrice && Number(updateData.discountPrice) < Number(product.price)) {
+      User.find({ role: 'customer' }).select('_id').then((customers) => {
+        customers.forEach((c) => {
+          createNotification(c._id, {
+            title: `Price Drop: ${product.name}! 🔥`,
+            body: `Now on sale for Rs. ${product.discountPrice} (Reduced from Rs. ${product.price})! Tap to order now.`,
+            type: 'promo',
+            data: { productId: product._id, url: `/product/${product._id}` },
+          });
+        });
+      }).catch(() => {});
     }
 
     res.json({ success: true, message: 'Product updated successfully', product });

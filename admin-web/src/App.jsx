@@ -8,6 +8,7 @@ import Offers from './pages/Offers';
 import Riders from './pages/Riders';
 import Users from './pages/Users';
 import Chat from './pages/Chat';
+import Issues from './pages/Issues';
 import Settings from './pages/Settings';
 import MobilePreview from './pages/MobilePreview';
 import Login from './pages/Login';
@@ -84,6 +85,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Chat onReplaySplash={() => setShowSplashOverlay(true)} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/issues"
+            element={
+              <ProtectedRoute>
+                <Issues onReplaySplash={() => setShowSplashOverlay(true)} />
               </ProtectedRoute>
             }
           />

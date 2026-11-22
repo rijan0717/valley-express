@@ -17,16 +17,33 @@ const riderRoutes = require('./routes/rider');
 const userRoutes = require('./routes/users');
 const mapRoutes = require('./routes/maps');
 const paymentRoutes = require('./routes/payments');
+const issueRoutes = require('./routes/issues');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
 // Security Middleware
 app.use(helmet());
 
-// CORS configuration (allow admin web and mobile apps)
+// CORS configuration (allow admin web and mobile apps securely)
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'];
+
 app.use(
   cors({
-    origin: '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile native apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        process.env.NODE_ENV !== 'production' ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
@@ -90,6 +107,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin/users', userRoutes);
 app.use('/api/maps', mapRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/issues', issueRoutes);
+app.use('/api/admin/issues', issueRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req, res) => {

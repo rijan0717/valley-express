@@ -21,7 +21,14 @@ const setupSockets = (io) => {
     // Join rider specific room
     socket.on('join:rider', (riderId) => {
       socket.join(`rider:${riderId}`);
-      console.log(`[Socket] ${socket.id} joined rider:${riderId}`);
+      socket.join('riders-pool');
+      console.log(`[Socket] ${socket.id} joined rider:${riderId} & riders-pool`);
+    });
+
+    // Join common fleet pool
+    socket.on('join:riders-pool', () => {
+      socket.join('riders-pool');
+      console.log(`[Socket] ${socket.id} joined riders-pool`);
     });
 
     // Join one conversation on an order. Chat is split per channel (support,

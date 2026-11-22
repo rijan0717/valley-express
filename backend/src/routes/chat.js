@@ -5,11 +5,13 @@ const {
   sendMessage,
   getAdminChatThreads,
   getFleetChatThreads,
+  getUserConversations,
   getUnreadCount,
   markThreadRead,
 } = require('../controllers/chatController');
 const { protect, requireRole } = require('../middleware/auth');
 
+router.get('/conversations', protect, getUserConversations);
 router.get('/threads', protect, requireRole('admin'), getAdminChatThreads);
 router.get('/fleet', protect, requireRole('admin'), getFleetChatThreads);
 router.get('/unread', protect, getUnreadCount);

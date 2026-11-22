@@ -65,6 +65,8 @@ class AppTheme {
     Color? color,
     double? height,
     double? letterSpacing,
+    TextDecoration? decoration,
+    Color? decorationColor,
   }) {
     return GoogleFonts.poppins(
       fontSize: fontSize,
@@ -72,6 +74,8 @@ class AppTheme {
       color: color,
       height: height,
       letterSpacing: letterSpacing,
+      decoration: decoration,
+      decorationColor: decorationColor,
     );
   }
 
@@ -81,6 +85,8 @@ class AppTheme {
     Color? color,
     double? height,
     double? letterSpacing,
+    TextDecoration? decoration,
+    Color? decorationColor,
   }) {
     return GoogleFonts.plusJakartaSans(
       fontSize: fontSize,
@@ -88,6 +94,8 @@ class AppTheme {
       color: color,
       height: height,
       letterSpacing: letterSpacing,
+      decoration: decoration,
+      decorationColor: decorationColor,
     );
   }
 
