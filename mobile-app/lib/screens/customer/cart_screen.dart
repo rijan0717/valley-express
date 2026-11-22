@@ -291,7 +291,6 @@ class _CartScreenState extends State<CartScreen> {
             })
         .toList();
 
-    final int currentTotal = (cart.subtotal + cart.deliveryFee - _discount).clamp(0, 9999999);
     final bool isAgeVerified = _ageConfirmed || (auth.user?.ageConfirmed ?? false);
 
     final order = await orderProv.placeOrder(

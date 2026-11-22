@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -12,6 +13,7 @@ import '../../models/order.dart';
 import 'cart_screen.dart';
 import 'my_orders_screen.dart';
 import 'chat_screen.dart';
+import 'chat_inbox_screen.dart';
 import 'profile_screen.dart';
 import 'product_detail_screen.dart';
 import 'map_address_picker_screen.dart';
@@ -43,6 +45,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   bool _loading = true;
   int _currentNavIndex = 0;
   int _currentOfferSlide = 0;
+  DateTime? _lastBackPressTime;
+  int _unreadNotifCount = 0;
+
+  Future<void> _fetchUnreadNotifCount() async {
+    try {
+      final res = await _api.dio.get('/notifications/unread-count');
+      if (res.statusCode == 200 && res.data['success'] == true) {
+        if (mounted) {
+          setState(() {
+            _unreadNotifCount = (res.data['count'] ?? 0) as int;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   final GlobalKey _cartTargetKey = GlobalKey();
 
@@ -50,15 +67,63 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _fetchUnreadNotifCount();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<OrderProvider>(context, listen: false).fetchMyOrders();
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      Provider.of<ChatUnreadProvider>(context, listen: false).start(auth.user?.id);
+      final unread = Provider.of<ChatUnreadProvider>(context, listen: false);
+      unread.start(auth.user?.id);
+      unread.addListener(_handleChatNotice);
     });
+  }
+
+  void _handleChatNotice() {
+    if (!mounted) return;
+    final unread = Provider.of<ChatUnreadProvider>(context, listen: false);
+    final notice = unread.lastMessageNotice;
+    if (notice != null && notice.isNotEmpty) {
+      unread.clearNotice();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.mark_chat_unread_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    notice,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            action: SnackBarAction(
+              label: 'View',
+              textColor: AppTheme.primaryOrange,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChatInboxScreen()),
+                );
+              },
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF0F172A),
+            duration: const Duration(seconds: 5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+    }
   }
 
   @override
   void dispose() {
+    try {
+      Provider.of<ChatUnreadProvider>(context, listen: false).removeListener(_handleChatNotice);
+    } catch (_) {}
     _searchController.dispose();
     _offersPageController.dispose();
     super.dispose();
@@ -431,13 +496,42 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       p.categoryName.toLowerCase().contains('kitchen')
     ).toList();
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_currentNavIndex != 0) {
+          setState(() => _currentNavIndex = 0);
+          return;
+        }
+        final now = DateTime.now();
+        if (_lastBackPressTime == null || now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+          _lastBackPressTime = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text('Press back again to exit app'),
+                ],
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.navyBrand,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+          return;
+        }
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
       backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
       body: SafeArea(
         child: _loading
             ? const ValleyLoaderScreen(label: "Loading tonight's catalog...")
-            : RefreshIndicator(
-                color: AppTheme.primaryOrange,
+            : ValleyRefreshIndicator(
                 onRefresh: _loadData,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -589,7 +683,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(builder: (_) => const NotificationScreen()),
-                                  );
+                                  ).then((_) => _fetchUnreadNotifCount());
                                 },
                                 child: Container(
                                   width: 40,
@@ -609,24 +703,25 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                         color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                                         size: 20,
                                       ),
-                                      Positioned(
-                                        top: 8,
-                                        right: 8,
-                                        child: Container(
-                                          width: 7,
-                                          height: 7,
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryOrange,
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppTheme.primaryOrange.withOpacity(0.8),
-                                                blurRadius: 4,
-                                              ),
-                                            ],
+                                      if (_unreadNotifCount > 0)
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: Container(
+                                            width: 7,
+                                            height: 7,
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryOrange,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppTheme.primaryOrange.withOpacity(0.8),
+                                                  blurRadius: 4,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -1344,16 +1439,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         backgroundColor: AppTheme.primaryOrange,
         elevation: 4,
         shape: const CircleBorder(),
-        tooltip: 'Chat with Dispatch Hub',
+        tooltip: 'Messages & Order Chats',
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => ChatScreen(
-                orderId: activeOrder?.id,
-                orderNo: activeOrder?.orderNo,
-                channel: ChatChannel.support,
-                title: 'Valley Dispatch Hub',
-              ),
+              builder: (_) => const ChatInboxScreen(),
             ),
           );
         },
@@ -1520,25 +1610,29 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   },
                   isDark: isDark,
                 ),
-                _buildNavItem(
-                  index: 3,
-                  icon: Icons.person_outline_rounded,
-                  label: 'Profile',
-                  isSelected: _currentNavIndex == 3,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  },
-                  isDark: isDark,
+                Consumer<ChatUnreadProvider>(
+                  builder: (_, unread, __) => _buildNavItem(
+                    index: 3,
+                    icon: Icons.person_outline_rounded,
+                    label: 'Profile',
+                    showDot: unread.total > 0,
+                    isSelected: _currentNavIndex == 3,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                      );
+                    },
+                    isDark: isDark,
+                  ),
                 ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDot(int index, int current) {
     final active = index == current;
@@ -1932,6 +2026,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     required VoidCallback onTap,
     required bool isDark,
     int badgeCount = 0,
+    bool showDot = false,
     Key? iconKey,
   }) {
     return GestureDetector(
@@ -1971,6 +2066,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                    ),
+                  ),
+                )
+              else if (showDot)
+                Positioned(
+                  top: -2,
+                  right: -4,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppTheme.alertRed,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
                     ),
                   ),
                 ),

@@ -209,13 +209,27 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '${order.items.length} item(s) • Rs. ${order.total}',
-                      style: AppTheme.displayFont(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: AppTheme.primaryOrange,
-                      ),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      children: [
+                        Text(
+                          'Rs. ${order.total}',
+                          style: AppTheme.displayFont(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: AppTheme.primaryOrange,
+                          ),
+                        ),
+                        Text(
+                          '(${order.items.length} items • Delivery: Rs. ${order.deliveryFee})',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
