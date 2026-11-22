@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
-import '../../widgets/auth_tab_bar.dart';
+import 'login_screen.dart';
 import '../../providers/auth_provider.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -67,7 +67,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
+            },
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
@@ -88,8 +96,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AuthTabBar(current: AuthTab.forgot),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               Center(
                 child: Column(
                   children: [
@@ -169,8 +176,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                         ),
                         decoration: const InputDecoration(
-                          hintText: '98XXXXXXXX or email@example.com',
-                          prefixIcon: Icon(Icons.phone_iphone_rounded, color: AppTheme.primaryOrange, size: 20),
+                          hintText: 'email@example.com',
+                          prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryOrange, size: 20),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14),
                         ),
@@ -206,7 +213,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       color: AppTheme.navyBrand,
                     ),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    }
+                  },
                 ),
               ),
             ],

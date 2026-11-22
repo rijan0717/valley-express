@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/auth_tab_bar.dart';
+import 'phone_login_screen.dart';
 import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
 import 'login_screen.dart';
@@ -17,6 +17,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -34,11 +36,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (name.isEmpty || phone.isEmpty || password.isEmpty) {
-      _showToast('Please fill in your name, mobile number and password.');
+    if (name.isEmpty || (phone.isEmpty && email.isEmpty) || password.isEmpty) {
+      _showToast('Please fill in your name, email/mobile number and password.');
+      return;
+    }
+    if (email.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      _showToast('Please enter a valid email address (e.g. name@example.com).');
       return;
     }
     if (password.length < 8) {
@@ -54,6 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final res = await auth.register(
       name: name,
+      email: email,
       phone: phone,
       password: password,
       ageConfirmed: _ageConfirmed,
@@ -62,11 +70,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (res.success) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+        (route) => false,
       );
     } else {
-      _showToast(res.message.isNotEmpty ? res.message : 'Registration failed. Try again.');
+      final errorMsg = res.fieldErrors.isNotEmpty
+          ? res.fieldErrors.values.first
+          : (res.message.isNotEmpty ? res.message : 'Registration failed. Try again.');
+      _showToast(errorMsg);
     }
   }
 
@@ -98,7 +110,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
+            },
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
@@ -119,8 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AuthTabBar(current: AuthTab.createAccount),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
               Container(
                 padding: const EdgeInsets.all(20),
@@ -136,12 +155,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     Center(
                       child: Container(
-                        width: 48,
-                        height: 48,
-                        padding: const EdgeInsets.all(9),
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryOrange,
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
                               color: AppTheme.primaryGlow,
@@ -151,7 +168,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                         ),
                         child: SvgPicture.asset(
-                          'assets/images/brand/mark-v.svg',
+                          'assets/images/valley-express-loader.svg',
                           fit: BoxFit.contain,
                         ),
                       ),
@@ -178,6 +195,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hint: 'e.g. Prajina Maharjan',
                       icon: Icons.person_outline_rounded,
                       controller: _nameController,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildField(
+                      label: 'EMAIL ADDRESS',
+                      hint: 'email@example.com',
+                      icon: Icons.email_outlined,
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
                       isDark: isDark,
                     ),
                     const SizedBox(height: 14),
@@ -236,7 +262,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -249,9 +274,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      );
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        );
+                      }
                     },
                     child: Text(
                       'Sign In',
@@ -264,7 +293,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  icon: const Icon(Icons.sms_outlined, size: 16, color: AppTheme.navyBrand),
+                  label: Text(
+                    'Sign in with SMS OTP',
+                    style: AppTheme.displayFont(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.navyBrand,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),

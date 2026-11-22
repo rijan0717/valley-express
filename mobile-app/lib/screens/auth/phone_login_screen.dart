@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
-import '../../widgets/auth_tab_bar.dart';
+import 'register_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
@@ -17,9 +18,32 @@ class PhoneLoginScreen extends StatefulWidget {
 }
 
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
+  final _storage = const FlutterSecureStorage();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   bool _submitting = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedPhone();
+  }
+
+  Future<void> _loadRememberedPhone() async {
+    try {
+      final remember = await _storage.read(key: 'valley_remember_phone_check');
+      if (remember == 'true') {
+        final savedPhone = await _storage.read(key: 'valley_remember_phone');
+        if (mounted && savedPhone != null && savedPhone.isNotEmpty) {
+          setState(() {
+            _rememberMe = true;
+            _phoneController.text = savedPhone;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -65,13 +89,23 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      if (_rememberMe) {
+        await _storage.write(key: 'valley_remember_phone_check', value: 'true');
+        await _storage.write(key: 'valley_remember_phone', value: phone);
+      } else {
+        await _storage.delete(key: 'valley_remember_phone_check');
+        await _storage.delete(key: 'valley_remember_phone');
+      }
+
       if (auth.user?.role == 'rider') {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const RiderHomeScreen()),
+          (route) => false,
         );
       } else {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+          (route) => false,
         );
       }
     } else {
@@ -100,14 +134,22 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
         backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
         title: Text(
-          'Account Access',
+          'SMS OTP Sign In',
           style: AppTheme.displayFont(fontSize: 18, fontWeight: FontWeight.w800),
         ),
         titleSpacing: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
+            },
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
@@ -128,8 +170,6 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AuthTabBar(current: AuthTab.smsOtp),
-              const SizedBox(height: 16),
               const SizedBox(height: 10),
 
               // LOGO — the official animated lockup, from the brand export.
@@ -256,7 +296,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
@@ -283,7 +323,40 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 14),
+
+                    // REMEMBER ME CHECKBOX
+                    Row(
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: _rememberMe,
+                            activeColor: AppTheme.primaryOrange,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                            onChanged: (val) {
+                              setState(() => _rememberMe = val ?? false);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _rememberMe = !_rememberMe);
+                          },
+                          child: Text(
+                            'Remember Me',
+                            style: AppTheme.bodyFont(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
                     // VERIFY & SIGN IN BUTTON
                     ElevatedButton(
@@ -335,6 +408,35 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Don't have an account? ",
+                    style: AppTheme.bodyFont(
+                      fontSize: 13,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                      );
+                    },
+                    child: Text(
+                      'Register here',
+                      style: AppTheme.displayFont(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryOrange,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),

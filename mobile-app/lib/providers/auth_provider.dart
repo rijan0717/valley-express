@@ -38,8 +38,24 @@ class AuthProvider with ChangeNotifier {
     _token = await _storage.read(key: AppConstants.tokenKey);
     final userJson = await _storage.read(key: AppConstants.userKey);
     if (userJson != null) {
-      _user = UserModel.fromJson(jsonDecode(userJson));
-      notifyListeners();
+      try {
+        _user = UserModel.fromJson(jsonDecode(userJson));
+        notifyListeners();
+      } catch (_) {}
+    }
+    if (_token != null) {
+      try {
+        final res = await _api.dio.get('/auth/me');
+        if (res.data is Map && res.data['success'] == true && res.data['user'] != null) {
+          _user = UserModel.fromJson(res.data['user']);
+          await _storage.write(key: AppConstants.userKey, value: jsonEncode(_user!.toJson()));
+          notifyListeners();
+        }
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          await logout();
+        }
+      } catch (_) {}
     }
   }
 
@@ -348,26 +364,22 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
     try {
       final res = await _api.dio.post('/auth/rider-login', data: {
-        'loginId': loginId,
+        'loginId': loginId.trim(),
         'password': password,
       });
 
       if (res.data['success'] == true) {
-        _token = res.data['token'];
-        _user = UserModel.fromJson(res.data['user']);
-        try {
-          await _storage.write(key: AppConstants.tokenKey, value: _token);
-          await _storage.write(key: AppConstants.userKey, value: jsonEncode(_user!.toJson()));
-        } catch (_) {}
+        await _persistSession(Map<String, dynamic>.from(res.data));
         _isLoading = false;
         notifyListeners();
         return true;
       }
     } catch (e) {
-      debugPrint('[verifyOtp Error] $e');
+      debugPrint('[riderPasswordLogin Error] $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
     return false;
   }
 
