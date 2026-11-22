@@ -252,7 +252,7 @@ const searchPlaces = async (req, res) => {
 
       const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         query
-      )}&addressdetails=1&limit=8&countrycodes=np&viewbox=85.20,27.80,85.50,27.60`;
+      )}&addressdetails=1&limit=20&countrycodes=np&viewbox=85.20,27.80,85.50,27.60`;
 
       const response = await fetch(osmUrl, {
         headers: {
@@ -293,16 +293,23 @@ const searchPlaces = async (req, res) => {
       // If Nominatim times out or network is restricted, fallback is gracefully used
     }
 
-    // Combine results, prioritizing exact local landmark matches followed by OSM results
+    // Combine results, prioritising exact local landmark matches followed by
+    // OSM results.
+    //
+    // Coordinates are compared at 5 decimal places (~1m). The previous 3
+    // places were ~110m, so two genuinely different addresses on the same
+    // street collapsed into one and the list came back far shorter than the
+    // places actually found.
+    const coordKey = (item) =>
+      `${item.latitude.toFixed(5)},${item.longitude.toFixed(5)}`;
+
     const combined = [...localMatches];
-    const seenCoordinates = new Set(
-      localMatches.map((m) => `${m.latitude.toFixed(3)},${m.longitude.toFixed(3)}`)
-    );
+    const seen = new Set(localMatches.map(coordKey));
 
     for (const osmItem of osmResults) {
-      const coordKey = `${osmItem.latitude.toFixed(3)},${osmItem.longitude.toFixed(3)}`;
-      if (!seenCoordinates.has(coordKey)) {
-        seenCoordinates.add(coordKey);
+      const key = coordKey(osmItem);
+      if (!seen.has(key)) {
+        seen.add(key);
         combined.push(osmItem);
       }
     }
@@ -310,7 +317,7 @@ const searchPlaces = async (req, res) => {
     res.json({
       success: true,
       count: combined.length,
-      results: combined.slice(0, 10),
+      results: combined.slice(0, 20),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
