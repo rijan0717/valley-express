@@ -48,6 +48,24 @@ const otpLimiter = rateLimit({
 });
 app.use('/api/auth/send-otp', otpLimiter);
 
+// The credential endpoints were unthrottled, so a password or OTP could be
+// guessed at full speed. Counted per IP; successful sign-ins are not held
+// against the limit, so a customer typing one wrong password is unaffected.
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    message: 'Too many sign-in attempts. Please wait a few minutes and try again.',
+  },
+});
+app.use('/api/auth/customer-login', credentialLimiter);
+app.use('/api/auth/rider-login', credentialLimiter);
+app.use('/api/auth/admin-login', credentialLimiter);
+app.use('/api/auth/verify-otp', credentialLimiter);
+app.use('/api/auth/reset-password', credentialLimiter);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({

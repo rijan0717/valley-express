@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { secret } = require('../utils/token');
 
 const protect = async (req, res, next) => {
   let token;
@@ -10,13 +11,13 @@ const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET || 'super_secret_jwt_key_valley_express_2026'
-      );
+      // Shared with the signer so the production guard applies to both.
+      const decoded = jwt.verify(token, secret());
 
-      // Support mock/dev mode
-      if (decoded.id === 'dev_admin_id') {
+      // Local mock admin. Gated on the environment: a token carrying this id
+      // grants full admin without any corresponding account, so it must never
+      // be honoured by a production server.
+      if (decoded.id === 'dev_admin_id' && process.env.NODE_ENV !== 'production') {
         req.user = {
           _id: 'dev_admin_id',
           name: 'Valley Express Admin',
