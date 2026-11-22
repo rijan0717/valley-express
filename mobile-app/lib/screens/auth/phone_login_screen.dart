@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../widgets/auth_tab_bar.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
 import 'login_screen.dart';
@@ -16,8 +17,8 @@ class PhoneLoginScreen extends StatefulWidget {
 }
 
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
-  final _phoneController = TextEditingController(text: '9841234567');
-  final _otpController = TextEditingController(text: '123456');
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
   bool _submitting = false;
 
   @override
@@ -39,7 +40,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     await auth.sendOtp(phone);
     setState(() => _submitting = false);
 
-    _showToast('Verification code sent to +977 $phone (Demo OTP: 123456)');
+    _showToast('Verification code sent to +977 $phone');
   }
 
   Future<void> _handleVerifyOtp() async {
@@ -74,7 +75,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
         );
       }
     } else {
-      _showToast('Invalid OTP. Please check the code or try demo OTP: 123456');
+      _showToast('That code is invalid or has expired. Request a new one.');
     }
   }
 
@@ -98,6 +99,11 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
+        title: Text(
+          'Account Access',
+          style: AppTheme.displayFont(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
+        titleSpacing: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
@@ -122,56 +128,12 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const AuthTabBar(current: AuthTab.smsOtp),
+              const SizedBox(height: 16),
               const SizedBox(height: 10),
 
-              // LOGO
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryOrange,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryGlow,
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: SvgPicture.asset(
-                        'assets/images/logo.svg',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    RichText(
-                      text: TextSpan(
-                        style: AppTheme.displayFont(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
-                        ),
-                        children: const [
-                          TextSpan(text: 'Valley '),
-                          TextSpan(
-                            text: 'EXPRESS',
-                            style: TextStyle(
-                              color: AppTheme.primaryOrange,
-                              letterSpacing: 2,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // LOGO — the official animated lockup, from the brand export.
+              const Center(child: ValleyWordmark(width: 220)),
               const SizedBox(height: 28),
 
               // OTP CARD
@@ -226,9 +188,6 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                        ),
                       ),
                       child: Row(
                         children: [
@@ -297,10 +256,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                        ),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
@@ -317,7 +273,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                 color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
                               ),
                               decoration: const InputDecoration(
-                                hintText: '123456',
+                                hintText: 'Enter 6-digit code',
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,
@@ -379,25 +335,6 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // GUEST BYPASS
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-                    );
-                  },
-                  child: Text(
-                    'Continue as Guest',
-                    style: AppTheme.bodyFont(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),

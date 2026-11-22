@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../widgets/auth_tab_bar.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
 import 'phone_login_screen.dart';
@@ -17,8 +19,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _identifierController = TextEditingController(text: '9841234567');
-  final _passwordController = TextEditingController(text: 'secret1234');
+  final _identifierController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _submitting = false;
 
@@ -89,6 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? AppTheme.darkSurfaceCard : Colors.white,
         elevation: 0,
+        title: Text(
+          'Account Access',
+          style: AppTheme.displayFont(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
+        titleSpacing: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: GestureDetector(
@@ -121,6 +128,8 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const AuthTabBar(current: AuthTab.signIn),
+              const SizedBox(height: 16),
               const SizedBox(height: 10),
 
               // BRAND LOGO & HEADLINE
@@ -231,10 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                        ),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: TextField(
                         controller: _identifierController,
@@ -288,10 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                        ),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: TextField(
                         controller: _passwordController,
@@ -348,16 +351,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                        ),
                       ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          'assets/images/scooter-banner.svg',
-                          height: 44,
-                          fit: BoxFit.contain,
-                        ),
+                      clipBehavior: Clip.antiAlias,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: ValleyRideStrip(height: 44),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -436,26 +434,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-
-              // GUEST BYPASS
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-                    );
-                  },
-                  child: Text(
-                    'Continue as Guest',
-                    style: AppTheme.bodyFont(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
               ),
               const SizedBox(height: 16),
             ],

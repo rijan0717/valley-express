@@ -51,6 +51,13 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
     addresses: [addressSchema],
+    // The profile photo, held as a data URL of the uploaded image. Stored on
+    // the account rather than only on the device, so it survives a reinstall
+    // and follows the customer to a second device.
+    avatarUrl: {
+      type: String,
+      default: '',
+    },
     fcmTokens: [{ type: String }],
     // Rider specific fields
     isOnline: {
