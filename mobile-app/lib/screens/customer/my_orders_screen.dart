@@ -295,7 +295,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => ChatScreen(orderId: order.id, orderNo: order.orderNo),
+                        builder: (_) => ChatScreen(
+                          orderId: order.id,
+                          orderNo: order.orderNo,
+                          channel: ChatChannel.support,
+                          title: 'Valley Dispatch Hub',
+                        ),
                       ),
                     );
                   },

@@ -92,13 +92,16 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Creates a customer account. Email is the account identifier; a mobile
-  /// number can be added later from the profile for SMS password resets.
+  /// Creates a customer account, identified by a mobile number or an email —
+  /// the sign-up form collects a mobile, and an email can be added later from
+  /// the profile. [ageConfirmed] records the 18+ declaration, which the API
+  /// requires before it will open an account.
   Future<AuthResult> register({
     required String name,
-    required String email,
     required String password,
+    required bool ageConfirmed,
     bool rememberMe = true,
+    String? email,
     String? phone,
   }) async {
     _isLoading = true;
@@ -106,8 +109,9 @@ class AuthProvider with ChangeNotifier {
     try {
       final res = await _api.dio.post('/auth/register', data: {
         'name': name,
-        'email': email.trim(),
         'password': password,
+        'ageConfirmed': ageConfirmed,
+        if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
         if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
       });
       if (res.data['success'] == true) {
@@ -234,16 +238,40 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateAvatar(String url) async {
-    if (_user != null) {
-      _user = _user!.copyWith(avatarUrl: url);
-      try {
-        await _storage.write(
-          key: AppConstants.userKey,
-          value: jsonEncode(_user!.toJson()),
-        );
-      } catch (_) {}
+  /// Sets the profile photo and saves it to the account.
+  ///
+  /// The local copy is updated first so the new picture shows immediately,
+  /// then it is persisted server-side — it used to be written only to device
+  /// storage, so a reinstall or a second device lost it.
+  Future<AuthResult> updateAvatar(String url) async {
+    if (_user == null) {
+      return const AuthResult(success: false, message: 'Sign in to change your photo');
+    }
+
+    final previous = _user;
+    _user = _user!.copyWith(avatarUrl: url);
+    notifyListeners();
+
+    try {
+      await _storage.write(
+        key: AppConstants.userKey,
+        value: jsonEncode(_user!.toJson()),
+      );
+    } catch (_) {}
+
+    try {
+      final res = await _api.dio.put('/auth/profile', data: {'avatarUrl': url});
+      if (res.data['success'] == true) {
+        return AuthResult(success: true, message: res.data['message'] ?? 'Photo updated');
+      }
+      // Put the old picture back rather than showing one the server rejected.
+      _user = previous;
       notifyListeners();
+      return AuthResult(success: false, message: res.data['message'] ?? 'Could not save your photo');
+    } catch (e) {
+      _user = previous;
+      notifyListeners();
+      return _failure(e, 'Could not save your photo. Please try again.');
     }
   }
 
@@ -368,16 +396,10 @@ class AuthProvider with ChangeNotifier {
       final nextStatus = !_user!.isOnline;
       final res = await _api.dio.patch('/auth/rider/status', data: {'isOnline': nextStatus});
       if (res.data['success'] == true) {
-        _user = UserModel(
-          id: _user!.id,
-          phone: _user!.phone,
-          name: _user!.name,
-          email: _user!.email,
-          role: _user!.role,
-          ageConfirmed: _user!.ageConfirmed,
-          isOnline: nextStatus,
-          vehicleNumber: _user!.vehicleNumber,
-        );
+        // copyWith rather than rebuilding field by field: the old version
+        // listed the fields it knew about, so anything added later (the
+        // profile photo, for one) was dropped on every duty toggle.
+        _user = _user!.copyWith(isOnline: nextStatus);
         notifyListeners();
       }
     } catch (_) {}

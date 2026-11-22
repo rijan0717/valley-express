@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../widgets/valley_loader.dart';
+import '../../widgets/valley_snackbar.dart';
 import '../../core/socket_service.dart';
 import '../customer/chat_screen.dart';
 import '../auth/welcome_screen.dart';
@@ -21,11 +22,17 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   List<dynamic> _assignedOrders = [];
   bool _loading = true;
 
+  /// Delivery counts and cash owed, from `GET /rider/stats`. Null until the
+  /// first response arrives, so the grid can show placeholders rather than
+  /// invented figures.
+  Map<String, dynamic>? _stats;
+
   @override
   void initState() {
     super.initState();
     _socket.connect();
     _fetchOrders();
+    _fetchStats();
   }
 
   Future<void> _fetchOrders() async {
@@ -40,6 +47,29 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _fetchStats() async {
+    try {
+      final res = await _api.dio.get('/rider/stats');
+      if (mounted && res.data['success'] == true) {
+        setState(() => _stats = Map<String, dynamic>.from(res.data['stats'] ?? {}));
+      }
+    } catch (_) {
+      // The grid falls back to placeholders; a failed stats call should not
+      // take the whole duty screen down.
+    }
+  }
+
+  /// Formats a rupee amount the way the rest of the app does.
+  static String _rupees(num value) {
+    final whole = value.round().toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < whole.length; i++) {
+      if (i > 0 && (whole.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(whole[i]);
+    }
+    return 'Rs. $buffer';
   }
 
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
@@ -61,9 +91,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating status: $e'), backgroundColor: AppTheme.primaryOrange),
-      );
+      ValleySnack.error(context, friendlyApiError(e, 'Could not update the order. Try again.'));
     }
   }
 
@@ -324,6 +352,36 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                           onChanged: (_) => auth.toggleRiderOnline(),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // The rider's own line to operations, kept apart from any
+                  // order so it stays open between deliveries.
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ChatScreen(
+                            channel: ChatChannel.fleet,
+                            title: 'Dispatch Control',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.headset_mic_outlined, size: 18, color: AppTheme.navyBrand),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.navyBrand),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    label: Text(
+                      'Message Dispatch Control',
+                      style: AppTheme.displayFont(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.navyBrand,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -590,7 +648,15 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                                     onPressed: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) => ChatScreen(orderId: orderId, orderNo: orderNo),
+                                          // The rider's line to the customer
+                                          // is the delivery channel, separate
+                                          // from the customer's support thread.
+                                          builder: (_) => ChatScreen(
+                                            orderId: orderId,
+                                            orderNo: orderNo,
+                                            channel: ChatChannel.delivery,
+                                            title: customerName,
+                                          ),
                                         ),
                                       );
                                     },
@@ -625,31 +691,41 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                     mainAxisSpacing: 10,
                     childAspectRatio: 1.5,
                     children: [
+                      // Figures come from /rider/stats. Until it answers the
+                      // cards show a dash rather than a made-up number.
                       _buildMetricCard(
                         title: "Today's Deliveries",
-                        value: '8 Orders',
-                        sub: '● All on time',
+                        value: _stats == null
+                            ? '—'
+                            : '${_stats!['todayDeliveries'] ?? 0} Orders',
+                        sub: 'Completed today',
                         subColor: AppTheme.successGreen,
                         isDark: isDark,
                       ),
                       _buildMetricCard(
                         title: 'Lifetime Rides',
-                        value: '142 Rides',
+                        value: _stats == null
+                            ? '—'
+                            : '${_stats!['lifetimeRides'] ?? 0} Rides',
                         sub: 'Kathmandu Valley',
                         subColor: Colors.grey,
                         isDark: isDark,
                       ),
                       _buildMetricCard(
                         title: 'Cash Collected',
-                        value: 'Rs. 6,840',
-                        sub: 'Ready for settlement',
+                        value: _stats == null
+                            ? '—'
+                            : _rupees((_stats!['cashCollectedToday'] ?? 0) as num),
+                        sub: 'Cash orders today',
                         subColor: AppTheme.primaryOrange,
                         isDark: isDark,
                       ),
                       _buildMetricCard(
-                        title: 'Rider Rating',
-                        value: '★ 4.9',
-                        sub: 'Gold Fleet Level',
+                        title: 'Active Now',
+                        value: _stats == null
+                            ? '—'
+                            : '${_stats!['activeOrders'] ?? 0} Orders',
+                        sub: 'Assigned to you',
                         subColor: AppTheme.warningYellow,
                         isDark: isDark,
                       ),

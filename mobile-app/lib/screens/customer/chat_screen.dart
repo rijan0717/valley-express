@@ -5,14 +5,37 @@ import '../../core/api_client.dart';
 import '../../core/socket_service.dart';
 import '../../core/theme.dart';
 import '../../widgets/valley_loader.dart';
+import '../../widgets/valley_snackbar.dart';
 import '../../providers/chat_unread_provider.dart';
 import '../../providers/auth_provider.dart';
+
+/// The conversations an order can carry. Each is a separate thread: the
+/// customer's line to operations, the customer's line to the rider carrying
+/// the order, and the rider's line to dispatch.
+class ChatChannel {
+  static const support = 'support';
+  static const delivery = 'delivery';
+  static const fleet = 'fleet';
+}
 
 class ChatScreen extends StatefulWidget {
   final String? orderId;
   final String? orderNo;
 
-  const ChatScreen({super.key, this.orderId, this.orderNo});
+  /// Which conversation to open. The server keeps these apart, so a customer
+  /// never sees the rider's dispatch traffic and vice versa.
+  final String channel;
+
+  /// Shown in the app bar; defaults to the channel's usual counterpart.
+  final String? title;
+
+  const ChatScreen({
+    super.key,
+    this.orderId,
+    this.orderNo,
+    this.channel = ChatChannel.support,
+    this.title,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -27,6 +50,29 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _loading = true;
 
   String get _resolvedThreadId => widget.orderId ?? 'general';
+
+  /// Who the caller is talking to when no explicit title is supplied.
+  String get _defaultTitle {
+    switch (widget.channel) {
+      case ChatChannel.delivery:
+        return 'Your Rider';
+      case ChatChannel.fleet:
+        return 'Dispatch Control';
+      default:
+        return 'Valley Dispatch Hub';
+    }
+  }
+
+  String get _channelLabel {
+    switch (widget.channel) {
+      case ChatChannel.delivery:
+        return 'Delivery Chat';
+      case ChatChannel.fleet:
+        return 'Fleet Line';
+      default:
+        return 'Live Order Support';
+    }
+  }
 
   @override
   void initState() {
@@ -87,7 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _markRead() async {
     try {
-      await _api.dio.post('/chat/$_resolvedThreadId/read');
+      await _api.dio.post('/chat/$_resolvedThreadId/read', data: {'channel': widget.channel});
       if (mounted) {
         context.read<ChatUnreadProvider>().refresh();
       }
@@ -96,7 +142,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _fetchMessages() async {
     try {
-      final res = await _api.dio.get('/chat/$_resolvedThreadId');
+      final res = await _api.dio.get(
+        '/chat/$_resolvedThreadId',
+        queryParameters: {'channel': widget.channel},
+      );
       if (mounted && res.data['success'] == true) {
         setState(() {
           _messages.clear();
@@ -116,9 +165,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _messageController.clear();
     try {
+      // senderRole is no longer sent: the API takes it from the session, so
+      // a client cannot label its own messages as coming from operations.
       final res = await _api.dio.post('/chat/$_resolvedThreadId', data: {
         'text': text,
-        'senderRole': 'customer',
+        'channel': widget.channel,
       });
       if (res.data['success'] == true) {
         final newMsg = res.data['message'];
@@ -132,9 +183,8 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send message: $e')),
-      );
+      _messageController.text = text;
+      ValleySnack.error(context, friendlyApiError(e, 'Message not sent. Tap send to retry.'));
     }
   }
 
@@ -240,7 +290,7 @@ class _ChatScreenState extends State<ChatScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Valley Dispatch Hub',
+                  widget.title ?? _defaultTitle,
                   style: AppTheme.displayFont(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -249,8 +299,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 Text(
                   widget.orderNo != null
-                      ? 'Order: ${widget.orderNo} • Live Support'
-                      : '● Online • Live Order Support',
+                      ? 'Order: ${widget.orderNo} • $_channelLabel'
+                      : '● Online • $_channelLabel',
                   style: AppTheme.bodyFont(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,

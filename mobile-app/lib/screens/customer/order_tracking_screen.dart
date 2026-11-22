@@ -292,7 +292,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                             ),
                             const SizedBox(height: 22),
 
-                            // CHAT BUTTON
+                            // Two separate conversations: operations is always
+                            // reachable, the rider only once they are
+                            // carrying the order. The server enforces the
+                            // same rule, so this is the visible half of it.
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primaryOrange,
@@ -306,6 +309,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                     builder: (_) => ChatScreen(
                                       orderId: order.id,
                                       orderNo: order.orderNo,
+                                      channel: ChatChannel.support,
+                                      title: 'Valley Dispatch Hub',
                                     ),
                                   ),
                                 );
@@ -313,10 +318,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
+                                  const Icon(Icons.headset_mic_outlined, color: Colors.white, size: 18),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Direct Chat with Dispatch / Rider',
+                                    'Chat with Support',
                                     style: AppTheme.displayFont(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w800,
@@ -326,6 +331,60 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            Builder(builder: (_) {
+                              const openFrom = ['picked_up', 'on_the_way', 'delivered'];
+                              final riderReady = openFrom.contains(order.status) &&
+                                  (order.riderName ?? '').isNotEmpty;
+                              return OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: riderReady ? AppTheme.navyBrand : Colors.grey.shade400,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                onPressed: riderReady
+                                    ? () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => ChatScreen(
+                                              orderId: order.id,
+                                              orderNo: order.orderNo,
+                                              channel: ChatChannel.delivery,
+                                              title: order.riderName,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.pedal_bike_rounded,
+                                      size: 18,
+                                      color: riderReady ? AppTheme.navyBrand : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        riderReady
+                                            ? 'Chat with ${order.riderName}'
+                                            : 'Chat opens once your rider collects it',
+                                        textAlign: TextAlign.center,
+                                        style: AppTheme.displayFont(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: riderReady ? AppTheme.navyBrand : Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
                             const SizedBox(height: 10),
                           ],
                         ),
