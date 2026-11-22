@@ -6,6 +6,44 @@ import { useSocket } from '../context/SocketContext';
 import { useModal } from '../context/ModalContext';
 import ValleyLoader from '../components/ValleyLoader';
 
+const ClockIcon = ({ size = 12, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const formatTimeAgo = (rawDate) => {
+  if (!rawDate) return '';
+  const dt = new Date(rawDate);
+  if (Number.isNaN(dt.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now.getTime() - dt.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 45) return 'Just now';
+
+  const diffMins = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays >= 1) {
+    return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+  }
+
+  if (diffHours >= 1) {
+    const remMins = diffMins % 60;
+    const hourPart = diffHours === 1 ? '1 hour' : `${diffHours} hours`;
+    if (remMins === 0) {
+      return `${hourPart} ago`;
+    }
+    const minPart = remMins === 1 ? '1 min' : `${remMins} mins`;
+    return `${hourPart} ${minPart} ago`;
+  }
+
+  return diffMins <= 1 ? '1 min ago' : `${diffMins} mins ago`;
+};
+
 const OrdersBoard = ({ onReplaySplash }) => {
   const [orders, setOrders] = useState([]);
   const [riders, setRiders] = useState([]);
@@ -273,10 +311,34 @@ const OrdersBoard = ({ onReplaySplash }) => {
         className="kanban-card"
         onClick={() => setSelectedOrder(order)}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontWeight: 700, color: '#003893' }}>{order.orderNo}</span>
-          <span style={{ fontWeight: 700, color: '#FF6B1A', fontSize: '13px' }}>
-            Rs. {order.total}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+          <div>
+            <span style={{ fontWeight: 800, color: '#003893', fontSize: '14px' }}>#{order.orderNo}</span>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontWeight: 800, color: '#FF6B1A', fontSize: '13px' }}>
+              Rs. {order.total}
+            </span>
+            <div style={{ fontSize: '10.5px', color: '#003893', fontWeight: 700 }}>
+              Delivery: Rs. {order.deliveryFee || 50}
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '11px',
+          fontWeight: 700,
+          color: '#FF6B1A',
+          marginBottom: '8px'
+        }}>
+          <ClockIcon size={12} color="#FF6B1A" />
+          <span>Placed {formatTimeAgo(order.createdAt)}</span>
+          <span style={{ color: '#94A3B8', fontWeight: 400 }}>•</span>
+          <span style={{ color: '#64748B', fontWeight: 500 }}>
+            {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
 
@@ -668,7 +730,11 @@ const OrdersBoard = ({ onReplaySplash }) => {
                               >
                                 #{o.orderNo}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#1F2A44' }}>
+                              <div style={{ fontSize: '11px', color: '#FF6B1A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                <ClockIcon size={11} color="#FF6B1A" />
+                                <span>Placed {formatTimeAgo(o.createdAt)}</span>
+                              </div>
+                              <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '1px' }}>
                                 {new Date(o.createdAt).toLocaleString()}
                               </div>
                             </td>
@@ -721,7 +787,12 @@ const OrdersBoard = ({ onReplaySplash }) => {
                               <div style={{ fontWeight: 700, fontSize: '13px', color: '#FF6B1A' }}>
                                 Rs. {(o.total || 0).toLocaleString()}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#1F2A44', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              <div style={{ fontSize: '10px', color: '#1F2A44', marginTop: '2px' }}>
+                                <span style={{ fontWeight: 600, color: '#003893' }}>Delivery: Rs. {(o.deliveryFee ?? 50).toLocaleString()}</span>
+                                <span style={{ margin: '0 4px', color: '#D1D5DB' }}>•</span>
+                                <span>Items: Rs. {Math.max(0, (o.total || 0) - (o.deliveryFee ?? 50)).toLocaleString()}</span>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#1F2A44', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '3px' }}>
                                 <span>{o.paymentMethod?.replace(/_/g, ' ') || 'Cash on Delivery'}</span>
                                 {o.paymentStatus === 'paid' ? (
                                   <span style={{ fontSize: '9px', fontWeight: 700, color: '#16A34A', background: '#DCFCE7', padding: '1px 4px', borderRadius: '3px' }}>PAID</span>
@@ -978,9 +1049,18 @@ const OrdersBoard = ({ onReplaySplash }) => {
                   <div className="modal-header">
                     <div>
                       <h3 className="modal-title">{selectedOrder.orderNo} Details</h3>
-                      <span className="badge badge-brand" style={{ marginTop: '4px' }}>
-                        {selectedOrder.status.replace(/_/g, ' ')}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        <span className="badge badge-brand">
+                          {selectedOrder.status.replace(/_/g, ' ')}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#FF6B1A', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <ClockIcon size={12} color="#FF6B1A" />
+                          Placed {formatTimeAgo(selectedOrder.createdAt)}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#6B7280' }}>
+                          ({new Date(selectedOrder.createdAt).toLocaleString()})
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => setSelectedOrder(null)}
