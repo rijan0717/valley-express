@@ -12,6 +12,7 @@ const Riders = ({ onReplaySplash }) => {
   const [simulating, setSimulating] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingRider, setEditingRider] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { latestRiderLocation, socket } = useSocket();
 
   const [formData, setFormData] = useState({
@@ -42,6 +43,7 @@ const Riders = ({ onReplaySplash }) => {
 
   const openAddModal = () => {
     setEditingRider(null);
+    setShowPassword(false);
     setFormData({
       name: '',
       phone: '',
@@ -56,6 +58,7 @@ const Riders = ({ onReplaySplash }) => {
 
   const openEditModal = (rider) => {
     setEditingRider(rider);
+    setShowPassword(false);
     setFormData({
       name: rider.name,
       phone: rider.phone,
@@ -459,15 +462,37 @@ const Riders = ({ onReplaySplash }) => {
                       <label className="form-label">
                         Rider Mobile Login Password {editingRider ? '(Leave blank to retain current)' : '*'}
                       </label>
-                      <input
-                        type="text"
-                        required={!editingRider}
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="e.g. Rider@123 or secret PIN"
-                      />
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required={!editingRider}
+                          minLength={editingRider && !formData.password ? undefined : 6}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          placeholder={editingRider ? '•••••••• (leave blank to keep current)' : 'Min. 6 chars secure password'}
+                          style={{ paddingRight: '54px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#6B7280',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {showPassword ? 'HIDE' : 'SHOW'}
+                        </button>
+                      </div>
                       <span style={{ fontSize: '11px', color: '#003893', marginTop: '4px', display: 'block' }}>
-                        The rider can log in on the mobile app directly using their Phone Number &amp; this Password (no registration needed).
+                        Stored securely with bcrypt encryption. Passwords are never displayed on this panel.
                       </span>
                     </div>
 
