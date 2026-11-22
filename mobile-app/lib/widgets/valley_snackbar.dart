@@ -77,3 +77,7 @@ class ValleySnack {
     });
   }
 }
+
+/// Convenience alias
+typedef ValleySnackbar = ValleySnack;
+

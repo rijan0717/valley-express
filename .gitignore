@@ -68,3 +68,4 @@ Thumbs.db
 # consistent snapshot of a running database, which is how the previously
 # committed copy ended up corrupt. Recreate with: npm run seed
 backend/data/
+data/

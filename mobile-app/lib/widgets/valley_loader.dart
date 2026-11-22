@@ -184,34 +184,49 @@ class ValleyRefresh extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomRefreshIndicator(
       onRefresh: onRefresh,
-      offsetToArmed: 92,
+      offsetToArmed: 80,
       builder: (context, child, controller) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final isRefreshing = controller.state == IndicatorState.loading ||
+            controller.state == IndicatorState.settling ||
+            controller.state == IndicatorState.finalizing;
+        final pullFraction = controller.value.clamp(0.0, 1.0);
+        final isVisible = controller.isArmed || isRefreshing || pullFraction > 0.15;
+
         return Stack(
+          alignment: Alignment.center,
           children: [
-            AnimatedBuilder(
-              animation: controller,
-              builder: (_, __) => SizedBox(
-                height: 92 * controller.value.clamp(0.0, 1.3),
-                width: double.infinity,
-                child: Center(
-                  child: Opacity(
-                    opacity: controller.value.clamp(0.0, 1.0),
-                    child: Transform.scale(
-                      scale: 0.5 + 0.5 * controller.value.clamp(0.0, 1.0),
-                      child: const ValleyLoader(size: 46),
+            child,
+            if (isVisible)
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !isRefreshing,
+                  child: Center(
+                    child: Opacity(
+                      opacity: isRefreshing ? 1.0 : pullFraction,
+                      child: Transform.scale(
+                        scale: 0.7 + 0.3 * (isRefreshing ? 1.0 : pullFraction),
+                        child: Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.12),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const ValleyLoader(size: 64),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            AnimatedBuilder(
-              animation: controller,
-              builder: (_, builderChild) => Transform.translate(
-                offset: Offset(0, 92 * controller.value.clamp(0.0, 1.3)),
-                child: builderChild,
-              ),
-              child: child,
-            ),
           ],
         );
       },
@@ -219,6 +234,10 @@ class ValleyRefresh extends StatelessWidget {
     );
   }
 }
+
+/// Convenience alias for ValleyRefresh
+typedef ValleyRefreshIndicator = ValleyRefresh;
+
 
 /// Full-screen centred loader. Use this wherever a screen is waiting on its
 /// first load, so the brand mark always sits in the middle of the screen.
@@ -241,3 +260,5 @@ class ValleyLoaderScreen extends StatelessWidget {
     );
   }
 }
+
+

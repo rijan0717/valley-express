@@ -2,6 +2,7 @@
 setlocal
 title Valley Express - Android Build and Install
 set "ROOT=%~dp0"
+if exist "%ROOT%tools\flutter\bin\flutter.bat" set "PATH=%ROOT%tools\flutter\bin;%PATH%"
 set "APK=%ROOT%mobile-app\build\app\outputs\flutter-apk\app-debug.apk"
 
 REM Locate adb - prefer PATH, then the standard Android SDK location
