@@ -17,8 +17,10 @@ const adminLogin = async (req, res) => {
     const cleanEmail = email.toLowerCase().trim();
     let user = await User.findOne({ email: cleanEmail });
 
-    // Auto-seed or locate designated admin
-    if (!user && cleanEmail === 'admin@gmail.com') {
+    // Auto-seed the local admin. Restricted to non-production: on a live
+    // server this would mint an administrator with a password that is written
+    // down in this file.
+    if (!user && cleanEmail === 'admin@gmail.com' && process.env.NODE_ENV !== 'production') {
       const hashedPassword = await bcrypt.hash('Password@123', 10);
       user = await User.create({
         email: 'admin@gmail.com',
@@ -42,8 +44,16 @@ const adminLogin = async (req, res) => {
     if (user.password) {
       isMatch = await bcrypt.compare(password, user.password);
     }
-    // Also accept designated Password@123 for the specified admin account
-    if (!isMatch && password === 'Password@123' && cleanEmail === 'admin@gmail.com') {
+    // Local convenience login for the seeded admin. Outside development this
+    // is a permanent backdoor: it is accepted even after the password has
+    // been changed, and then overwrites the new password with this one, so
+    // the account can never actually be secured.
+    if (
+      !isMatch &&
+      password === 'Password@123' &&
+      cleanEmail === 'admin@gmail.com' &&
+      process.env.NODE_ENV !== 'production'
+    ) {
       isMatch = true;
       const hashedPassword = await bcrypt.hash('Password@123', 10);
       user.password = hashedPassword;
@@ -81,6 +91,7 @@ const publicUser = (user) => ({
   name: user.name,
   role: user.role,
   ageConfirmed: user.ageConfirmed,
+  avatarUrl: user.avatarUrl,
   isOnline: user.isOnline,
   addresses: user.addresses,
 });
@@ -92,21 +103,32 @@ const isValidPhone = (value) => /^9[78]\d{8}$/.test(value);
 // POST /api/auth/register
 const register = async (req, res) => {
   try {
-    const { name, phone, email, password } = req.body;
+    const { name, phone, email, password, ageConfirmed } = req.body;
+
+    const hasEmail = Boolean(email && String(email).trim());
+    const hasPhone = Boolean(phone && String(phone).trim());
 
     const errors = {};
     if (!name || !name.trim()) errors.name = 'Full name is required';
-    // Email is the primary identifier for a customer account
-    if (!email || !String(email).trim()) errors.email = 'Email address is required';
-    else if (!isValidEmail(String(email).trim())) {
+    // An account is identified by an email or a mobile number. The app's
+    // sign-up form collects only a mobile, so email is no longer mandatory —
+    // but one of the two has to be present to have something to sign in with.
+    if (!hasEmail && !hasPhone) {
+      errors.phone = 'Enter your mobile number';
+    }
+    if (hasEmail && !isValidEmail(String(email).trim())) {
       errors.email = 'Enter a valid email address';
     }
-    // Phone is optional at sign-up, but must be valid when supplied
-    if (phone && String(phone).trim() && !isValidPhone(String(phone).trim())) {
+    if (hasPhone && !isValidPhone(String(phone).trim())) {
       errors.phone = 'Enter a valid 10-digit Nepali mobile number';
     }
     if (!password) errors.password = 'Password is required';
     else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
+    // Alcohol cannot be delivered to an unverified minor, so the 18+
+    // confirmation is enforced here and not left to the client.
+    if (ageConfirmed !== true) {
+      errors.ageConfirmed = 'You must confirm you are 18 or older';
+    }
 
     if (Object.keys(errors).length > 0) {
       return res.status(400).json({
@@ -116,10 +138,10 @@ const register = async (req, res) => {
       });
     }
 
-    const cleanEmail = String(email).toLowerCase().trim();
-    const cleanPhone = phone && String(phone).trim() ? String(phone).trim() : undefined;
+    const cleanEmail = hasEmail ? String(email).toLowerCase().trim() : undefined;
+    const cleanPhone = hasPhone ? String(phone).trim() : undefined;
 
-    const existingEmail = await User.findOne({ email: cleanEmail });
+    const existingEmail = cleanEmail ? await User.findOne({ email: cleanEmail }) : null;
     if (existingEmail && existingEmail.password) {
       return res.status(409).json({
         success: false,
@@ -152,8 +174,9 @@ const register = async (req, res) => {
     if (user) {
       user.name = name.trim();
       user.password = hashedPassword;
-      user.email = cleanEmail;
+      if (cleanEmail) user.email = cleanEmail;
       if (cleanPhone) user.phone = cleanPhone;
+      user.ageConfirmed = true;
       await user.save();
     } else {
       user = await User.create({
@@ -162,7 +185,8 @@ const register = async (req, res) => {
         phone: cleanPhone,
         password: hashedPassword,
         role: 'customer',
-        ageConfirmed: false,
+        // Validated above; recorded so the 18+ gate has a stored answer.
+        ageConfirmed: true,
       });
     }
 
@@ -217,6 +241,16 @@ const customerLogin = async (req, res) => {
         success: false,
         message: 'Incorrect password. Try again or reset it.',
         errors: { password: 'Incorrect password' },
+      });
+    }
+
+    // Riders sign in through this same screen, so the suspension check that
+    // guards /auth/rider-login has to apply here too or it is trivially
+    // bypassed by using the customer endpoint.
+    if (user.role === 'rider' && user.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'This rider account is currently suspended. Please contact operations dispatch.',
       });
     }
 
@@ -429,9 +463,16 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
     }
 
-    // Verify OTP
+    // Verify OTP.
+    //
+    // The fixed 123456 code is a local development convenience and must stay
+    // behind the environment check: without it this endpoint signs anyone in
+    // as any phone number — and creates the account if it does not exist.
+    // The password-reset path already guarded it; this one did not.
     const stored = otpStore.get(phone);
-    const isValid = (stored && stored.otp === otp && stored.expiresAt > Date.now()) || otp === '123456';
+    const isValid =
+      (stored && stored.otp === otp && stored.expiresAt > Date.now()) ||
+      (process.env.NODE_ENV !== 'production' && otp === '123456');
 
     if (!isValid) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
@@ -486,7 +527,7 @@ const getMe = async (req, res) => {
 // PUT /api/auth/profile
 const updateProfile = async (req, res) => {
   try {
-    const { name, email, ageConfirmed, address, fcmToken } = req.body;
+    const { name, email, ageConfirmed, address, fcmToken, avatarUrl } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -496,6 +537,7 @@ const updateProfile = async (req, res) => {
     if (name !== undefined) user.name = name;
     if (email !== undefined) user.email = email;
     if (ageConfirmed !== undefined) user.ageConfirmed = ageConfirmed;
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (fcmToken && !user.fcmTokens.includes(fcmToken)) {
       user.fcmTokens.push(fcmToken);
     }
