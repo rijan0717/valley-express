@@ -5,6 +5,7 @@ import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../widgets/avatar_upload_sheet.dart';
 import '../../widgets/valley_loader.dart';
 import '../../models/product.dart';
 import '../../models/order.dart';
@@ -530,12 +531,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                   ),
                                   child: auth.user?.avatarUrl != null && auth.user!.avatarUrl!.isNotEmpty
                                       ? ClipOval(
-                                          child: Image.network(
-                                            auth.user!.avatarUrl!,
-                                            width: 44,
-                                            height: 44,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Center(
+                                          child: AvatarImage(
+                                            url: auth.user!.avatarUrl!,
+                                            size: 44,
+                                            fallback: Center(
                                               child: Text(
                                                 userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
                                                 style: AppTheme.displayFont(
@@ -1352,6 +1351,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               builder: (_) => ChatScreen(
                 orderId: activeOrder?.id,
                 orderNo: activeOrder?.orderNo,
+                channel: ChatChannel.support,
+                title: 'Valley Dispatch Hub',
               ),
             ),
           );

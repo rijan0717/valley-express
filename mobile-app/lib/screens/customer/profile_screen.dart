@@ -5,8 +5,9 @@ import '../../core/theme.dart';
 import '../../providers/chat_unread_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../providers/preferences_provider.dart';
+import '../../widgets/avatar_upload_sheet.dart';
 import '../../widgets/unread_badge.dart';
-import 'cart_screen.dart';
+import '../../widgets/valley_snackbar.dart';
 import 'my_orders_screen.dart';
 import 'chat_screen.dart';
 import 'change_password_screen.dart';
@@ -31,151 +32,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  /// Lets the customer attach their own photo.
+  ///
+  /// The curated stock avatars and the "paste an image URL" field are gone: a
+  /// URL pointed the account at somebody else's server, which can change or
+  /// disappear underneath us. The picture is uploaded, downscaled and stored
+  /// on the account instead.
   void _showAvatarPicker() {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final urlController = TextEditingController();
+    final hasPhoto = (auth.user?.avatarUrl ?? '').isNotEmpty;
 
-    final List<String> avatars = [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&auto=format&fit=crop&q=80',
-    ];
+    Future<void> save(BuildContext ctx, String dataUrl, String done) async {
+      final res = await auth.updateAvatar(dataUrl);
+      if (ctx.mounted) Navigator.of(ctx).pop();
+      if (!mounted) return;
+      res.success
+          ? ValleySnack.success(context, done)
+          : ValleySnack.error(context, res.message);
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.fromLTRB(22, 16, 22, MediaQuery.of(ctx).viewInsets.bottom + 22),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Choose Profile Photo',
-              style: AppTheme.displayFont(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Select a curated avatar or enter a custom photo image URL',
-              style: AppTheme.bodyFont(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 18),
-
-            // Avatars Grid
-            Wrap(
-              spacing: 14,
-              runSpacing: 14,
-              alignment: WrapAlignment.center,
-              children: avatars.map((url) {
-                final isSelected = auth.user?.avatarUrl == url;
-                return GestureDetector(
-                  onTap: () {
-                    auth.updateAvatar(url);
-                    Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile image updated!'),
-                        duration: Duration(seconds: 1),
-                        backgroundColor: AppTheme.primaryOrange,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? AppTheme.primaryOrange : Colors.transparent,
-                        width: 3,
-                      ),
-                    ),
-                    child: ClipOval(
-                      child: Image.network(
-                        url,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.person),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 18),
-
-            // Custom URL input
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.link_rounded, color: AppTheme.primaryOrange, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: urlController,
-                      style: AppTheme.bodyFont(fontSize: 12),
-                      decoration: const InputDecoration(
-                        hintText: 'Paste custom image URL...',
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      final customUrl = urlController.text.trim();
-                      if (customUrl.isNotEmpty) {
-                        auth.updateAvatar(customUrl);
-                        Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Custom profile image updated!'),
-                            backgroundColor: AppTheme.primaryOrange,
-                          ),
-                        );
-                      }
-                    },
-                    child: Text('Save', style: AppTheme.displayFont(fontSize: 12, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      builder: (ctx) => AvatarUploadSheet(
+        isDark: isDark,
+        onPicked: (dataUrl) => save(ctx, dataUrl, 'Profile photo updated'),
+        onRemoved: hasPhoto ? () => save(ctx, '', 'Profile photo removed') : null,
       ),
     );
   }
@@ -292,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final userName = user?.name.isNotEmpty == true ? user!.name : 'Prajina Maharjan';
-    final userPhone = user?.phone.isNotEmpty == true ? '+977 ${user!.phone}' : '+977 9841234567';
+    final userPhone = user?.phone.isNotEmpty == true ? '+977 ${user!.phone}' : 'No mobile number added';
     final initials = userName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase();
     final hasAvatar = user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty;
 
@@ -372,12 +256,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: hasAvatar
                               ? ClipOval(
-                                  child: Image.network(
-                                    user.avatarUrl!,
-                                    width: 68,
-                                    height: 68,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Center(
+                                  child: AvatarImage(
+                                    url: user.avatarUrl!,
+                                    size: 68,
+                                    fallback: Center(
                                       child: Text(
                                         initials,
                                         style: AppTheme.displayFont(
