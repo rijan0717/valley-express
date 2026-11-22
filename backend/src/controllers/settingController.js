@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const Setting = require('../models/Setting');
 const User = require('../models/User');
+const Order = require('../models/Order');
 const RiderLocation = require('../models/RiderLocation');
 const bcrypt = require('bcryptjs');
 const { getIO } = require('../sockets');
@@ -225,6 +227,47 @@ const updateRiderLocation = async (req, res) => {
   }
 };
 
+
+// GET /api/rider/stats (Rider)
+// The figures behind the rider's "works & earnings" grid. These were hard
+// coded in the app; they are derived from the rider's own orders here.
+const getRiderStats = async (req, res) => {
+  try {
+    const riderId = req.user._id;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const [todayCount, lifetimeCount, cashRows, activeCount] = await Promise.all([
+      Order.countDocuments({ rider: riderId, status: 'delivered', updatedAt: { $gte: startOfDay } }),
+      Order.countDocuments({ rider: riderId, status: 'delivered' }),
+      Order.aggregate([
+        {
+          $match: {
+            rider: new mongoose.Types.ObjectId(String(riderId)),
+            status: 'delivered',
+            paymentMethod: 'cash_on_delivery',
+            updatedAt: { $gte: startOfDay },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$total' } } },
+      ]),
+      Order.countDocuments({ rider: riderId, status: { $in: ['rider_assigned', 'picked_up', 'on_the_way'] } }),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        todayDeliveries: todayCount,
+        lifetimeRides: lifetimeCount,
+        cashCollectedToday: cashRows[0]?.total || 0,
+        activeOrders: activeCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -234,4 +277,5 @@ module.exports = {
   deleteRider,
   toggleRiderDuty,
   updateRiderLocation,
+  getRiderStats,
 };
