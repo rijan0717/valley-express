@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme.dart';
 import '../../widgets/auth_animations.dart';
+import '../../widgets/valley_brand.dart';
 import 'welcome_screen.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
@@ -55,14 +56,9 @@ class _SplashScreenState extends State<SplashScreen> {
         alignment: Alignment.center,
         children: [
           AmbientHalo(size: 320),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedBrandMark(scale: 1.1),
-              SizedBox(height: 36),
-              DeliveryRunAnimation(height: 110),
-            ],
-          ),
+          // The official logo animation, rebuilt from
+          // valley-express-logo-animated.svg.
+          Center(child: ValleySplashLogo(width: 260)),
         ],
       ),
     );
