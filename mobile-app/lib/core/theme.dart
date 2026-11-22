@@ -121,7 +121,7 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: lightTextPrimary),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: lightSurfaceCard,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -165,17 +165,31 @@ class AppTheme {
       filled: true,
       fillColor: lightBgDevice,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      // Fields are defined by their fill alone — no outline in any state,
+      // including focus, so nothing draws a ring around the input.
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: lightBorderCard),
+        borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: lightBorderCard),
+        borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: primaryOrange, width: 1.5),
+        borderSide: BorderSide.none,
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
       ),
       labelStyle: bodyFont(fontSize: 12, fontWeight: FontWeight.w500, color: lightTextSecondary),
       hintStyle: bodyFont(fontSize: 13, fontWeight: FontWeight.w400, color: lightTextMuted),
@@ -212,7 +226,7 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: darkTextPrimary),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: darkSurfaceCard,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -256,17 +270,30 @@ class AppTheme {
       filled: true,
       fillColor: darkBgDevice,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      // Borderless to match the light theme; the fill carries the field.
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: darkBorderCard),
+        borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: darkBorderCard),
+        borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: primaryOrange, width: 1.5),
+        borderSide: BorderSide.none,
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
       ),
       labelStyle: bodyFont(fontSize: 12, fontWeight: FontWeight.w500, color: darkTextSecondary),
       hintStyle: bodyFont(fontSize: 13, fontWeight: FontWeight.w400, color: darkTextMuted),
