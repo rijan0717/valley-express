@@ -24,6 +24,22 @@ const setupSockets = (io) => {
       console.log(`[Socket] ${socket.id} joined rider:${riderId}`);
     });
 
+    // Join one conversation on an order. Chat is split per channel (support,
+    // delivery, fleet) so a customer watching their support thread is not
+    // handed the rider's traffic.
+    socket.on('join:thread', ({ orderId, channel = 'support' } = {}) => {
+      if (!orderId) return;
+      socket.join(`order:${orderId}:${channel}`);
+      console.log(`[Socket] ${socket.id} joined order:${orderId}:${channel}`);
+    });
+
+    // Join the caller's personal room, used for chat fan-out and badges.
+    socket.on('join:user', (userId) => {
+      if (!userId) return;
+      socket.join(`user:${userId}`);
+      console.log(`[Socket] ${socket.id} joined user:${userId}`);
+    });
+
     // Handle rider GPS location streaming
     socket.on('rider:location', (data) => {
       // data: { riderId, orderId, coordinates: [lng, lat], heading, speed }
@@ -36,14 +52,9 @@ const setupSockets = (io) => {
       }
     });
 
-    // Handle chat message in real time
-    socket.on('chat:message', (messageData) => {
-      // messageData: { orderId, threadId, sender, text, createdAt }
-      if (messageData.orderId) {
-        io.to(`order:${messageData.orderId}`).emit('chat:message', messageData);
-      }
-      io.to('admin-room').emit('chat:message', messageData);
-    });
+    // Chat is never relayed straight from a client: messages are broadcast by
+    // the REST handler once they are authorised and stored, so a socket
+    // cannot inject a message it was not allowed to send.
 
     socket.on('disconnect', () => {
       console.log(`[Socket Disconnected] ID: ${socket.id}`);

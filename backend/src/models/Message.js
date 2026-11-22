@@ -24,6 +24,26 @@ const messageSchema = new mongoose.Schema(
       enum: ['customer', 'admin', 'rider'],
       required: true,
     },
+    // Which conversation this belongs to. One order carries more than one:
+    // the customer talks to operations on 'support' and to the rider who is
+    // carrying the order on 'delivery', and those must stay separate so
+    // neither side reads the other's thread. 'fleet' is the rider's own line
+    // to dispatch and is not visible to customers.
+    channel: {
+      type: String,
+      enum: ['support', 'delivery', 'fleet'],
+      default: 'support',
+      required: true,
+      index: true,
+    },
+    // The rider party on a 'delivery' or 'fleet' message, so a rider's
+    // threads can be found without walking back through the order.
+    rider: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
+      index: true,
+    },
     text: {
       type: String,
       required: true,
