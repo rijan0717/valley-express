@@ -1,4 +1,6 @@
 const Offer = require('../models/Offer');
+const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 // GET /api/offers
 const getOffers = async (req, res) => {
@@ -45,8 +47,29 @@ const createOffer = async (req, res) => {
       isActive: true,
     });
 
+    // Dispatch promo notification to all customers
+    try {
+      const discountLabel = offer.discountType === 'percentage'
+        ? `${offer.discountValue}% OFF`
+        : `Rs. ${offer.discountValue} FLAT OFF`;
+
+      User.find({ role: 'customer' }).select('_id').then((customers) => {
+        customers.forEach((c) => {
+          createNotification(c._id, {
+            title: `New Deal: Use Code ${offer.code} (${discountLabel})! 🎉`,
+            body: `${offer.title || 'Special discount active'}: ${offer.description || 'Enjoy extra savings on your late night delivery!'}`,
+            type: 'promo',
+            data: { offerId: offer._id, code: offer.code, url: '/offers' },
+          });
+        });
+      }).catch(() => {});
+    } catch (_) {}
+
     res.status(201).json({ success: true, offer });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'An offer with this coupon code already exists' });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
