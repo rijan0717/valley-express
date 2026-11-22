@@ -10,7 +10,9 @@ const Order = require('../models/Order');
 
 const seedData = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/valley_express';
+    // See src/config/db.js: the IPv4 loopback is explicit because mongod
+    // binds only 127.0.0.1 while "localhost" may resolve to ::1 first.
+    const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/valley_express';
     await mongoose.connect(mongoUri);
     console.log('[Seed] Connected to MongoDB for seeding');
 
