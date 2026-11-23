@@ -25,7 +25,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       'name': 'Single Unit',
       'sub': 'Standard individual pack',
       'multiplier': 1,
-      'discount': 0,
+      'discount': 0.0,
     },
     {
       'name': 'Party Pack of 4',
@@ -49,7 +49,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final pack = _packSizes[_selectedPackIndex];
     final int mult = pack['multiplier'] as int;
-    final double discount = pack['discount'] as double;
+    final double discount = (pack['discount'] as num).toDouble();
     final int basePackPrice = (p.price * mult * (1.0 - discount)).round();
     final int totalCheckoutPrice = basePackPrice * _quantity;
 
@@ -400,7 +400,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         final item = _packSizes[idx];
                         final isSel = idx == _selectedPackIndex;
                         final mult = item['multiplier'] as int;
-                        final disc = item['discount'] as double;
+                        final disc = (item['discount'] as num).toDouble();
                         final packPrice = (p.price * mult * (1.0 - disc)).round();
 
                         return GestureDetector(

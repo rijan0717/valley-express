@@ -65,9 +65,9 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
     if (coords is List && coords.length >= 2) {
       return (coords[1] as num).toDouble();
     }
-    return (_currentOrder['deliveryAddress']?['latitude'] ??
+    return ((_currentOrder['deliveryAddress']?['latitude'] ??
         _currentOrder['address']?['latitude'] ??
-        27.7172) as double;
+        27.7172) as num).toDouble();
   }
 
   double get _lon {
@@ -76,9 +76,9 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
     if (coords is List && coords.length >= 2) {
       return (coords[0] as num).toDouble();
     }
-    return (_currentOrder['deliveryAddress']?['longitude'] ??
+    return ((_currentOrder['deliveryAddress']?['longitude'] ??
         _currentOrder['address']?['longitude'] ??
-        85.3240) as double;
+        85.3240) as num).toDouble();
   }
 
   String _formatTimeAgo(dynamic raw) {
