@@ -58,6 +58,25 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // Valley Coins. The balance is only ever moved through coinService, which
+    // writes a matching CoinTransaction, so the ledger and the balance agree.
+    valleyCoins: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Lifetime totals, kept for admin reporting so it never has to sum the
+    // whole ledger to show earned against spent.
+    coinsEarned: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    coinsSpent: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     fcmTokens: [{ type: String }],
     // Rider specific fields
     isOnline: {

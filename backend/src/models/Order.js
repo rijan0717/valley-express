@@ -63,6 +63,32 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // Valley Coins applied to this bill, and the rupees they took off. Both
+    // are computed on the server from the coin rate; the client never sends
+    // a discount amount.
+    coinsRedeemed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    coinDiscount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Coins credited when this order was delivered. Doubles as the guard that
+    // makes crediting idempotent: it is set in one atomic update.
+    coinsEarned: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Set once those earned coins have been taken back, so a cancellation
+    // cannot debit twice.
+    coinsReversed: {
+      type: Boolean,
+      default: false,
+    },
     deliveryAddress: {
       addressText: { type: String, required: true },
       landmark: { type: String, default: '' },
