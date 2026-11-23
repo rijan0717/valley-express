@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../providers/chat_unread_provider.dart';
 import '../../providers/order_provider.dart';
@@ -16,6 +17,9 @@ import 'edit_profile_screen.dart';
 import 'map_address_picker_screen.dart';
 import '../auth/welcome_screen.dart';
 import '../common/raise_issue_screen.dart';
+import 'valley_coins_screen.dart';
+import 'vouchers_screen.dart';
+import 'wishlist_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -25,6 +29,14 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final ApiClient _api = ApiClient();
+
+  // Counts for the three shortcut cards. They were hardcoded before, so the
+  // card could claim a balance the account did not have.
+  int _coinBalance = 0;
+  int _voucherCount = 0;
+  int _savedCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +44,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Provider.of<OrderProvider>(context, listen: false).fetchMyOrders();
       Provider.of<ChatUnreadProvider>(context, listen: false).start();
     });
+    _fetchShortcutCounts();
+  }
+
+  /// Each card reads its own figure; a failure just leaves that card at zero
+  /// rather than taking the whole profile down.
+  Future<void> _fetchShortcutCounts() async {
+    try {
+      final coins = await _api.dio.get('/coins/me');
+      if (mounted && coins.data['success'] == true) {
+        setState(() => _coinBalance = (coins.data['balance'] as num?)?.toInt() ?? 0);
+      }
+    } catch (_) {}
+
+    try {
+      final offers = await _api.dio.get('/offers');
+      if (mounted && offers.data['success'] == true) {
+        setState(() => _voucherCount = (offers.data['count'] as num?)?.toInt() ?? 0);
+      }
+    } catch (_) {}
+
+    try {
+      final saved = await _api.dio.get('/wishlist');
+      if (mounted && saved.data['success'] == true) {
+        setState(() => _savedCount = (saved.data['count'] as num?)?.toInt() ?? 0);
+      }
+    } catch (_) {}
+  }
+
+  /// Opens a shortcut page and refreshes the counts on the way back, so a
+  /// coin spent or a drink unsaved is reflected on the card straight away.
+  Future<void> _openAndRefresh(Widget page) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    if (mounted) _fetchShortcutCounts();
   }
 
   /// Lets the customer attach their own photo.
@@ -436,53 +481,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 14),
 
-            // 3. THREE VALUE SHORTCUT CARDS: WALLET, VOUCHERS, FAVORITES
+            // 3. THREE VALUE SHORTCUT CARDS: COINS, VOUCHERS, SAVED DRINKS
             Row(
               children: [
                 Expanded(
                   child: _buildMetricCard(
-                    title: 'Valley Cash',
-                    value: 'Rs. 450',
-                    icon: Icons.account_balance_wallet_outlined,
+                    title: 'Valley Coin',
+                    value: '$_coinBalance',
+                    icon: Icons.monetization_on_outlined,
                     iconColor: AppTheme.primaryOrange,
                     isDark: isDark,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Valley Wallet Balance: Rs. 450 available for 1-tap checkout.'),
-                          backgroundColor: AppTheme.navyBrand,
-                        ),
-                      );
-                    },
+                    onTap: () => _openAndRefresh(const ValleyCoinsScreen()),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _buildMetricCard(
                     title: 'My Vouchers',
-                    value: '3 Active',
+                    value: _voucherCount == 1 ? '1 Active' : '$_voucherCount Active',
                     icon: Icons.local_offer_outlined,
                     iconColor: AppTheme.successGreen,
                     isDark: isDark,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Active Vouchers:\n1. VALLEYFIRST (15% OFF)\n2. FREEICE (Free 2kg Tube Ice)'),
-                          backgroundColor: AppTheme.navyBrand,
-                        ),
-                      );
-                    },
+                    onTap: () => _openAndRefresh(const VouchersScreen()),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _buildMetricCard(
                     title: 'Saved Drinks',
-                    value: '8 Items',
+                    value: _savedCount == 1 ? '1 Item' : '$_savedCount Items',
                     icon: Icons.favorite_border_rounded,
                     iconColor: const Color(0xFFEC4899),
                     isDark: isDark,
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: () => _openAndRefresh(const WishlistScreen()),
                   ),
                 ),
               ],

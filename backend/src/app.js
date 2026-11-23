@@ -19,6 +19,8 @@ const mapRoutes = require('./routes/maps');
 const paymentRoutes = require('./routes/payments');
 const issueRoutes = require('./routes/issues');
 const notificationRoutes = require('./routes/notifications');
+const coinRoutes = require('./routes/coins');
+const wishlistRoutes = require('./routes/wishlist');
 
 const app = express();
 
@@ -110,6 +112,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/issues', issueRoutes);
 app.use('/api/admin/issues', issueRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/coins', coinRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // 404 handler
 app.use((req, res) => {
