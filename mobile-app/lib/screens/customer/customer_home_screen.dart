@@ -78,6 +78,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     });
   }
 
+  /// Day of the week for the status pill, nudging towards the offers rather
+  /// than assuming every visit is a late-night one.
+  String get _dayName {
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    // DateTime.weekday is 1..7 starting at Monday.
+    return days[DateTime.now().weekday - 1];
+  }
+
   void _handleChatNotice() {
     if (!mounted) return;
     final unread = Provider.of<ChatUnreadProvider>(context, listen: false);
@@ -567,13 +583,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                     fontSize: 11,
                                     color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
                                   ),
-                                  children: const [
-                                    TextSpan(text: 'Kathmandu Night Express • '),
-                                    TextSpan(
-                                      text: '8:00 PM – 4:00 AM',
-                                      style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryOrange),
-                                    ),
-                                    TextSpan(text: ' • Avg 24 mins'),
+                                children: [
+                                  TextSpan(text: 'Happy ' + _dayName + ' • '),
+                                  const TextSpan(
+                                    text: 'See what is on offer',
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryOrange),
+                                  ),
                                   ],
                                 ),
                               ),

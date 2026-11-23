@@ -228,6 +228,9 @@ class _RiderNotificationsScreenState extends State<RiderNotificationsScreen> {
   Widget _buildFilterChip(String id, String label, IconData? icon, bool isDark) {
     final selected = _selectedFilter == id;
     return ChoiceChip(
+      // The avatar already carries the state; a tick on top of it just
+      // crowds the chip.
+      showCheckmark: false,
       avatar: icon != null
           ? Icon(
               icon,

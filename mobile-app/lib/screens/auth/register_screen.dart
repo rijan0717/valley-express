@@ -3,8 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
-import 'phone_login_screen.dart';
-import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
 import 'login_screen.dart';
 
@@ -245,19 +243,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ],
                             ),
                     ),
-                    const SizedBox(height: 14),
-                    Container(
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        child: ValleyRideStrip(height: 44),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -292,25 +277,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton.icon(
-                  icon: const Icon(Icons.sms_outlined, size: 16, color: AppTheme.navyBrand),
-                  label: Text(
-                    'Sign in with SMS OTP',
-                    style: AppTheme.displayFont(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.navyBrand,
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
-                    );
-                  },
-                ),
               ),
               const SizedBox(height: 16),
             ],

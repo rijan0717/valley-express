@@ -228,6 +228,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget _buildFilterTab(int index, String label, IconData? icon, bool isDark) {
     final isSelected = _selectedFilter == index;
     return ChoiceChip(
+      // The avatar already carries the state; a tick on top of it just
+      // crowds the chip.
+      showCheckmark: false,
       avatar: icon != null
           ? Icon(
               icon,

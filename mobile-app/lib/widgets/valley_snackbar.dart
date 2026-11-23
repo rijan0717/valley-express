@@ -34,9 +34,13 @@ class ValleySnack {
         ],
       ),
       backgroundColor: colour,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      // Floating lays the bar out above the FAB, which on screens that also
+      // carry a bottom nav pushed it into the middle of the screen. Fixed
+      // anchors it to the bottom edge instead; margin is floating-only.
+      behavior: SnackBarBehavior.fixed,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
       elevation: 3,
       action: action,
       duration: duration,

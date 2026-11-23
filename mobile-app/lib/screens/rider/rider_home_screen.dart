@@ -887,7 +887,12 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          // Clear the Android gesture/navigation bar, which otherwise
+          // sits on top of the tab labels.
+          padding: EdgeInsets.only(
+            top: 8,
+            bottom: 8 + MediaQuery.viewPaddingOf(context).bottom,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -2271,6 +2276,41 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                     onChanged: (val) {
                       prefs.setDarkMode(val);
                     },
+                  ),
+                ),
+                Divider(height: 1, color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.navyBrand.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.my_location_rounded,
+                      color: AppTheme.navyBrand,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    'Location Sharing',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
+                    prefs.locationSharing
+                        ? 'Dispatch and customers see your live position'
+                        : 'Off — your position is not broadcast'
+                    ,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  trailing: Switch.adaptive(
+                    value: prefs.locationSharing,
+                    activeColor: AppTheme.primaryOrange,
+                    onChanged: (val) => prefs.setLocationSharing(val),
                   ),
                 ),
               ],
