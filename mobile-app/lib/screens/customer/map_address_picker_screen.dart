@@ -1411,7 +1411,10 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
+            // The map must not squash, so the Scaffold does not resize for
+            // the keyboard; the sheet lifts itself instead, which otherwise
+            // left the address fields hidden behind it while typing.
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
             child: Container(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
               decoration: BoxDecoration(
