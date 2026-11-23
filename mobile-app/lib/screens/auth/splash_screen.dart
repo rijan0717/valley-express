@@ -54,13 +54,22 @@ class _SplashScreenState extends State<SplashScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
-      body: const Stack(
+      body: Stack(
         alignment: Alignment.center,
         children: [
-          AmbientHalo(size: 320),
+          const AmbientHalo(size: 320),
           // The official logo animation, rebuilt from
-          // valley-express-logo-animated.svg.
-          Center(child: ValleySplashLogo(width: 260)),
+          // valley-express-logo-animated.svg. Scaled to fit so landscape,
+          // where there is far less height, cannot clip it.
+          Center(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: const ValleySplashLogo(width: 260),
+              ),
+            ),
+          ),
         ],
       ),
     );
