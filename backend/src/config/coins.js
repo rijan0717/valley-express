@@ -1,18 +1,18 @@
 /// Valley Coins: the loyalty balance a customer earns by ordering.
 ///
-/// One rupee paid earns one coin, and each coin is worth 0.1 rupee when it is
-/// redeemed, so 100 coins take 10 rupees off a bill. Coins are credited only
-/// once an order reaches `delivered`, and taken back if that order is later
-/// cancelled or refunded.
+/// Ten rupees paid earn one coin, and each coin is worth 0.1 rupee when it is
+/// redeemed, so 100 coins take 10 rupees off a bill. That is a 1% return on
+/// what a customer spends. Coins are credited only once an order reaches
+/// `delivered`, and taken back if that order is later cancelled or refunded.
 const COIN_VALUE_RUPEES = 0.1;
-const COINS_PER_RUPEE = 1;
+const RUPEES_PER_COIN = 10;
 
-/// Coins a paid amount earns. Rounded down so a bill never earns more than it
-/// was worth.
+/// Coins a paid amount earns. Rounded down, so a bill never earns more than
+/// it was worth and anything under ten rupees earns nothing.
 const coinsForAmount = (amount) => {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return 0;
-  return Math.floor(value * COINS_PER_RUPEE);
+  return Math.floor(value / RUPEES_PER_COIN);
 };
 
 /// Rupees a number of coins is worth, to two decimals.
@@ -31,7 +31,7 @@ const maxRedeemableCoins = (payableAmount, balance) => {
 
 module.exports = {
   COIN_VALUE_RUPEES,
-  COINS_PER_RUPEE,
+  RUPEES_PER_COIN,
   coinsForAmount,
   rupeesForCoins,
   maxRedeemableCoins,
