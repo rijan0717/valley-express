@@ -352,6 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: hint,
             prefixIcon: Icon(icon, color: AppTheme.primaryOrange, size: 20),
             suffixIcon: suffixIcon,
+            filled: false,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
@@ -408,6 +409,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 decoration: const InputDecoration(
                   hintText: '98XXXXXXXX',
+                  filled: false,
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),

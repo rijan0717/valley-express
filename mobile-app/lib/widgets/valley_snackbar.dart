@@ -9,7 +9,13 @@ import '../core/theme.dart';
 /// so firing one immediately before tearing that Scaffold down lays it out
 /// against stale geometry (full-bleed, unrounded, floating mid-screen).
 class ValleySnack {
-  static SnackBar _build(String message, Color colour, IconData icon) {
+  static SnackBar _build(
+    String message,
+    Color colour,
+    IconData icon, {
+    SnackBarAction? action,
+    Duration duration = const Duration(seconds: 3),
+  }) {
     return SnackBar(
       content: Row(
         children: [
@@ -32,7 +38,8 @@ class ValleySnack {
       margin: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
-      duration: const Duration(seconds: 3),
+      action: action,
+      duration: duration,
     );
   }
 
@@ -41,10 +48,12 @@ class ValleySnack {
     String message, {
     Color colour = AppTheme.darkNavy,
     IconData icon = Icons.info_outline_rounded,
+    SnackBarAction? action,
+    Duration duration = const Duration(seconds: 3),
   }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(_build(message, colour, icon));
+      ..showSnackBar(_build(message, colour, icon, action: action, duration: duration));
   }
 
   static void success(BuildContext context, String message) => show(

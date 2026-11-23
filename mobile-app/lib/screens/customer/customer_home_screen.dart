@@ -6,6 +6,7 @@ import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../widgets/valley_snackbar.dart';
 import '../../widgets/avatar_upload_sheet.dart';
 import '../../widgets/valley_loader.dart';
 import '../../models/product.dart';
@@ -83,39 +84,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final notice = unread.lastMessageNotice;
     if (notice != null && notice.isNotEmpty) {
       unread.clearNotice();
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.mark_chat_unread_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    notice,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            action: SnackBarAction(
-              label: 'View',
-              textColor: AppTheme.primaryOrange,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ChatInboxScreen()),
-                );
-              },
-            ),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF0F172A),
-            duration: const Duration(seconds: 5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+      ValleySnack.show(
+        context,
+        notice,
+        icon: Icons.mark_chat_unread_rounded,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'View',
+          textColor: AppTheme.primaryOrange,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ChatInboxScreen()),
+            );
+          },
+        ),
+      );
     }
   }
 
@@ -575,20 +558,24 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            RichText(
-                              text: TextSpan(
-                                style: AppTheme.bodyFont(
-                                  fontSize: 11,
-                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
-                                ),
-                                children: const [
-                                  TextSpan(text: 'Kathmandu Night Express • '),
-                                  TextSpan(
-                                    text: '8:00 PM – 4:00 AM',
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryOrange),
+                            Flexible(
+                              child: RichText(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                text: TextSpan(
+                                  style: AppTheme.bodyFont(
+                                    fontSize: 11,
+                                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
                                   ),
-                                  TextSpan(text: ' • Avg 24 mins'),
-                                ],
+                                  children: const [
+                                    TextSpan(text: 'Kathmandu Night Express • '),
+                                    TextSpan(
+                                      text: '8:00 PM – 4:00 AM',
+                                      style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryOrange),
+                                    ),
+                                    TextSpan(text: ' • Avg 24 mins'),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -1571,7 +1558,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ),
               ),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            // Clear the Android gesture/navigation bar, which otherwise
+            // sits on top of the tab labels.
+            padding: EdgeInsets.only(
+              top: 8,
+              bottom: 8 + MediaQuery.viewPaddingOf(context).bottom,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [

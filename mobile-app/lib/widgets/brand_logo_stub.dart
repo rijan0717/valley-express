@@ -10,7 +10,13 @@ Widget buildAnimatedBrandLogo({
     width: width,
     height: height,
     child: Center(
-      child: ValleySplashLogo(width: width * 0.8),
+      // The lockup sizes itself from its width, so a caller-supplied height
+      // can be shorter than the stack needs and the Column overflows. Scaling
+      // to fit matches the `object-fit: contain` the web variant uses.
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: ValleySplashLogo(width: width * 0.8),
+      ),
     ),
   );
 }

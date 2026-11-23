@@ -166,7 +166,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: TextField(
                         controller: _identifierController,
@@ -178,6 +178,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         decoration: const InputDecoration(
                           hintText: 'email@example.com',
                           prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryOrange, size: 20),
+                          filled: false,
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14),
                         ),

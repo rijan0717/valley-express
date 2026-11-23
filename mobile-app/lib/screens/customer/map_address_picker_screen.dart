@@ -1550,12 +1550,16 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                       children: [
                                         Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFFEA4335)),
                                         SizedBox(width: 6),
-                                        Text(
-                                          'Open Google Maps ↗',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFFEA4335),
+                                        Flexible(
+                                          child: Text(
+                                            'Open Google Maps ↗',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFFEA4335),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
@@ -1589,12 +1593,16 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                       children: [
                                         Icon(Icons.content_paste_rounded, size: 14, color: Color(0xFF1D4ED8)),
                                         SizedBox(width: 6),
-                                        Text(
-                                          'Paste Location',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF1D4ED8),
+                                        Flexible(
+                                          child: Text(
+                                            'Paste Location',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1D4ED8),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],

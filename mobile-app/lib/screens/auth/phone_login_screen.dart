@@ -253,6 +253,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                               ),
                               decoration: const InputDecoration(
                                 hintText: '98XXXXXXXX',
+                                filled: false,
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,
@@ -314,6 +315,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                               ),
                               decoration: const InputDecoration(
                                 hintText: 'Enter 6-digit code',
+                                filled: false,
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,

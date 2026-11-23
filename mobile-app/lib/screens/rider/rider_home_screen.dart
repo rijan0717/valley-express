@@ -750,12 +750,16 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                               ),
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              isOnline ? 'Kathmandu Fleet • Online on Duty' : 'Kathmandu Fleet • Duty Paused',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: isOnline ? AppTheme.successGreen : Colors.grey,
+                            Flexible(
+                              child: Text(
+                                isOnline ? 'Kathmandu Fleet • Online on Duty' : 'Kathmandu Fleet • Duty Paused',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: isOnline ? AppTheme.successGreen : Colors.grey,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
