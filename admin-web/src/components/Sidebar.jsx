@@ -88,7 +88,7 @@ const IssuesIcon = () => (
   </svg>
 );
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen = false, onNavigate }) => {
   const { logout, user } = useAuth();
   const { total: unreadChat } = useChatUnread();
 
@@ -107,7 +107,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? ' is-open' : ''}`}>
       <div className="sidebar-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <LogoMark size={32} />
@@ -129,6 +129,7 @@ const Sidebar = () => {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              onClick={onNavigate}
             >
               <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
               <span>{item.label}</span>

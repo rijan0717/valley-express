@@ -734,3 +734,121 @@ input:checked + .slider:before {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   Narrow screens: phones, and anything in landscape on a handset
+   ==========================================================================
+   The sidebar is a fixed 250px column, which on a 412px screen left barely
+   160px for the page itself and forced the whole dashboard to scroll
+   sideways. Below this width it slides in over the content instead, behind a
+   toggle in the navbar. */
+
+.sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sidebar-toggle svg {
+  /* The button is a flex container, so without this the icon is squashed to
+     nothing and the control looks empty. */
+  flex-shrink: 0;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .sidebar-toggle {
+    display: inline-flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: 254px;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 32px rgba(15, 23, 42, 0.18);
+    overflow-y: auto;
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  .page-body {
+    padding: 16px 14px 28px;
+  }
+
+  .top-navbar {
+    gap: 10px;
+    padding: 12px 14px;
+    flex-wrap: wrap;
+  }
+
+  .navbar-title {
+    font-size: 15px;
+  }
+
+  /* Tables stay wide, so let them scroll on their own rather than taking
+     the page with them. */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .modal-content {
+    width: calc(100vw - 28px);
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+}
+
+/* Handset in landscape: very little height, so the sidebar and any modal
+   must scroll rather than overflow the viewport. */
+@media (max-height: 520px) and (max-width: 1024px) {
+  .sidebar-menu {
+    padding-bottom: 20px;
+  }
+
+  .modal-content {
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .stat-card {
+    padding: 12px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}
