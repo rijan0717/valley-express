@@ -23,6 +23,7 @@ dependencies:
   maplibre_gl: ^0.25.0
   image_picker: ^1.1.2
   url_launcher: ^6.3.2
+  image: ^4.3.0
 
 dev_dependencies:
   flutter_test:

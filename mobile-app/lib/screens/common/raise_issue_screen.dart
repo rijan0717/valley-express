@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/api_client.dart';
+import '../../core/image_compress.dart';
 import '../../core/theme.dart';
 import '../../widgets/valley_loader.dart';
 import '../../widgets/valley_snackbar.dart';
@@ -92,9 +93,13 @@ class _RaiseIssueScreenState extends State<RaiseIssueScreen> with SingleTickerPr
       if (file == null) return;
 
       final bytes = await file.readAsBytes();
-      final mime = file.mimeType ?? 'image/jpeg';
+      final dataUrl = await ImageCompress.toDataUrl(
+        bytes,
+        maxEdge: ImageCompress.attachmentEdge,
+      );
+      if (!mounted) return;
       setState(() {
-        _screenshotBase64 = 'data:$mime;base64,${base64Encode(bytes)}';
+        _screenshotBase64 = dataUrl;
       });
     } catch (e) {
       if (mounted) {

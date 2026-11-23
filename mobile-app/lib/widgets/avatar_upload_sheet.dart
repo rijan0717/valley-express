@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../core/image_compress.dart';
 import '../core/theme.dart';
 
 /// Attach-a-photo sheet for the customer's profile picture.
@@ -54,7 +55,7 @@ class _AvatarUploadSheetState extends State<AvatarUploadSheet> {
       }
       final bytes = await file.readAsBytes();
       final mime = file.mimeType ?? _mimeFor(file.name);
-      widget.onPicked('data:$mime;base64,${base64Encode(bytes)}');
+      widget.onPicked(await ImageCompress.toDataUrl(bytes));
     } catch (e) {
       if (mounted) {
         setState(() {
