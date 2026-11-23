@@ -7,8 +7,15 @@ class AppConstants {
   // Base API configuration
   // On Web: connect to localhost:5000
   // On Android emulator: connect to 10.0.2.2:5000
-  static String get baseUrl => kIsWeb ? 'http://localhost:5000/api' : 'http://10.0.2.2:5000/api';
-  static String get socketUrl => kIsWeb ? 'http://localhost:5000' : 'http://10.0.2.2:5000';
+  // On a USB-attached phone: `adb reverse tcp:5000 tcp:5000`, then build with
+  // --dart-define=API_ORIGIN=http://localhost:5000 (or pass the host's LAN IP
+  // when the phone is on the same Wi-Fi instead).
+  static const String _apiOverride = String.fromEnvironment('API_ORIGIN');
+  static String get _origin => _apiOverride.isNotEmpty
+      ? _apiOverride
+      : (kIsWeb ? 'http://localhost:5000' : 'http://10.0.2.2:5000');
+  static String get baseUrl => '$_origin/api';
+  static String get socketUrl => _origin;
 
   // Local storage keys
   static const String tokenKey = 'valley_jwt_token';
