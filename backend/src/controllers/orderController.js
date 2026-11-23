@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Setting = require('../models/Setting');
 const Offer = require('../models/Offer');
 const User = require('../models/User');
+const coinService = require('../services/coinService');
 const { getIO } = require('../sockets');
 const { createNotification } = require('./notificationController');
 
@@ -298,6 +299,14 @@ const updateOrderStatus = async (req, res) => {
 
     await order.save();
 
+    // Coins settle on the real outcome of the order: credited once it is
+    // delivered, taken back if that delivery is later undone. Both are
+    // idempotent, so a repeated transition cannot pay out or claw back twice.
+    if (status === 'delivered') {
+      await coinService.awardForDeliveredOrder(Order, order._id);
+    } else if (status === 'cancelled' || status === 'refunded') {
+      await coinService.reverseForOrder(Order, order._id);
+    }
     const updated = await Order.findById(order._id)
       .populate('customer', 'name phone avatarUrl')
       .populate('rider', 'name phone vehicleNumber avatarUrl');
