@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants.dart';
+import '../../widgets/valley_brand.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../customer/customer_home_screen.dart';
@@ -32,10 +33,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loadRememberedCredentials() async {
     try {
-      final remember = await _storage.read(key: 'valley_remember_me');
+      final remember = await _storage.read(key: AppConstants.rememberMeKey);
       if (remember == 'true') {
-        final savedId = await _storage.read(key: 'valley_remembered_identifier');
-        final savedPass = await _storage.read(key: 'valley_remembered_password');
+        final savedId = await _storage.read(key: AppConstants.rememberedIdentifierKey);
+        final savedPass = await _storage.read(key: AppConstants.rememberedPasswordKey);
         if (mounted) {
           setState(() {
             _rememberMe = true;
@@ -81,13 +82,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       if (_rememberMe) {
-        await _storage.write(key: 'valley_remember_me', value: 'true');
-        await _storage.write(key: 'valley_remembered_identifier', value: identifier);
-        await _storage.write(key: 'valley_remembered_password', value: password);
+        await _storage.write(key: AppConstants.rememberMeKey, value: 'true');
+        await _storage.write(key: AppConstants.rememberedIdentifierKey, value: identifier);
+        await _storage.write(key: AppConstants.rememberedPasswordKey, value: password);
       } else {
-        await _storage.delete(key: 'valley_remember_me');
-        await _storage.delete(key: 'valley_remembered_identifier');
-        await _storage.delete(key: 'valley_remembered_password');
+        await _storage.delete(key: AppConstants.rememberMeKey);
+        await _storage.delete(key: AppConstants.rememberedIdentifierKey);
+        await _storage.delete(key: AppConstants.rememberedPasswordKey);
       }
 
       if (auth.user?.role == 'rider') {
@@ -165,62 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 10),
 
-              // BRAND LOGO & HEADLINE
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryOrange,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryGlow,
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: SvgPicture.asset(
-                        'assets/images/logo.svg',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    RichText(
-                      text: TextSpan(
-                        style: AppTheme.displayFont(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
-                        ),
-                        children: const [
-                          TextSpan(text: 'Valley '),
-                          TextSpan(
-                            text: 'EXPRESS',
-                            style: TextStyle(
-                              color: AppTheme.primaryOrange,
-                              letterSpacing: 2,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Fast to order. Fast to your door.',
-                      style: AppTheme.bodyFont(
-                        fontSize: 12,
-                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // BRAND LOCKUP — the same wordmark the OTP screen uses.
+              const Center(child: ValleyWordmark(width: 220)),
               const SizedBox(height: 28),
 
               // LOGIN CARD CONTAINER

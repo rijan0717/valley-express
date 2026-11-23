@@ -428,7 +428,30 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     _user = null;
     _token = null;
+    // deleteAll would take the remembered credentials with the session, so
+    // they are read back and rewritten when "remember me" is still set.
+    String? remembered;
+    String? identifier;
+    String? password;
+    try {
+      remembered = await _storage.read(key: AppConstants.rememberMeKey);
+      if (remembered == 'true') {
+        identifier = await _storage.read(key: AppConstants.rememberedIdentifierKey);
+        password = await _storage.read(key: AppConstants.rememberedPasswordKey);
+      }
+    } catch (_) {}
     await _storage.deleteAll();
+    if (remembered == 'true') {
+      try {
+        await _storage.write(key: AppConstants.rememberMeKey, value: 'true');
+        if (identifier != null) {
+          await _storage.write(key: AppConstants.rememberedIdentifierKey, value: identifier);
+        }
+        if (password != null) {
+          await _storage.write(key: AppConstants.rememberedPasswordKey, value: password);
+        }
+      } catch (_) {}
+    }
     notifyListeners();
   }
 }

@@ -21,6 +21,11 @@ class AppConstants {
   static const String tokenKey = 'valley_jwt_token';
   static const String userKey = 'valley_user_profile';
   static const String ageConfirmedKey = 'valley_age_confirmed';
+  // Survive logout: ticking "remember me" is a preference about the next
+  // sign-in, not part of the session it was set during.
+  static const String rememberMeKey = 'valley_remember_me';
+  static const String rememberedIdentifierKey = 'valley_remembered_identifier';
+  static const String rememberedPasswordKey = 'valley_remembered_password';
 
   // Pricing rules
   static const int defaultDeliveryFee = 100;
