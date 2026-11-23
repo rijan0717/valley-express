@@ -44,6 +44,7 @@ class OrderProvider with ChangeNotifier {
     String? offerCode,
     String paymentMethod = 'cash_on_delivery',
     bool ageConfirmed = false,
+    int coinsToRedeem = 0,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -67,6 +68,9 @@ class OrderProvider with ChangeNotifier {
         'paymentMethod': paymentMethod,
         if (offerCode != null && offerCode.isNotEmpty) 'offerCode': offerCode,
         'ageConfirmed': ageConfirmed,
+        // A count, never a discount: the server works out what the coins are
+        // worth and validates them against the real balance.
+        if (coinsToRedeem > 0) 'coinsToRedeem': coinsToRedeem,
       });
 
       if (res.data['success'] == true) {

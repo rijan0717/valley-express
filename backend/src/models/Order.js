@@ -89,6 +89,12 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // The same guard for coins spent on this order: a cancellation gives them
+    // back once and only once.
+    coinsRefunded: {
+      type: Boolean,
+      default: false,
+    },
     deliveryAddress: {
       addressText: { type: String, required: true },
       landmark: { type: String, default: '' },

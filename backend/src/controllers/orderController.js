@@ -4,6 +4,7 @@ const Setting = require('../models/Setting');
 const Offer = require('../models/Offer');
 const User = require('../models/User');
 const coinService = require('../services/coinService');
+const { maxRedeemableCoins, rupeesForCoins } = require('../config/coins');
 const { getIO } = require('../sockets');
 const { createNotification } = require('./notificationController');
 
@@ -110,7 +111,37 @@ const createOrder = async (req, res) => {
       }
     }
 
-    const total = Math.max(0, subtotal + deliveryFee - discount);
+    const payable = Math.max(0, subtotal + deliveryFee - discount);
+
+    // Valley Coins. The request says how many coins to put against the bill
+    // and nothing more: the rupee value is worked out here from the rate, so
+    // a client cannot name its own discount. The debit is conditional on the
+    // balance still being there, which is also what stops two orders placed
+    // at once from spending the same coins twice.
+    let coinsRedeemed = 0;
+    let coinDiscount = 0;
+    const requestedCoins = Math.floor(Number(req.body.coinsToRedeem) || 0);
+
+    if (requestedCoins > 0) {
+      const holder = await User.findById(req.user._id).select('valleyCoins');
+      const allowed = maxRedeemableCoins(payable, holder ? holder.valleyCoins : 0);
+      const toSpend = Math.min(requestedCoins, allowed);
+
+      if (toSpend > 0) {
+        const spent = await coinService.debit({
+          userId: req.user._id,
+          coins: toSpend,
+          type: 'spent',
+          note: 'Redeemed at checkout',
+        });
+        if (spent) {
+          coinsRedeemed = toSpend;
+          coinDiscount = rupeesForCoins(toSpend);
+        }
+      }
+    }
+
+    const total = Math.max(0, payable - coinDiscount);
 
     const orderNo = generateOrderNo();
 
@@ -147,30 +178,46 @@ const createOrder = async (req, res) => {
       normalizedPaymentMethod = 'cash_on_delivery';
     }
 
-    const order = await Order.create({
-      orderNo,
-      customer: req.user._id,
-      items: processedItems,
-      subtotal,
-      deliveryFee,
-      discount,
-      total,
-      offerCode: appliedOfferCode || offerCode || '',
-      paymentMethod: normalizedPaymentMethod,
-      paymentStatus: normalizedPaymentMethod === 'cash_on_delivery' ? 'pending' : 'paid',
-      deliveryAddress,
-      containsAlcohol,
-      customerNotes: notes || '',
-      status: 'placed',
-      statusHistory: [
-        {
-          status: 'placed',
-          timestamp: new Date(),
-          note: 'Order placed by customer',
-        },
-      ],
-      ageCheckedAtDoor: false,
-    });
+    // The coins were taken before the order existed, so give them back if
+    // writing it fails rather than leaving the customer short.
+    let order;
+    try {
+      order = await Order.create({
+        orderNo,
+        customer: req.user._id,
+        items: processedItems,
+        subtotal,
+        deliveryFee,
+        discount,
+        total,
+        offerCode: appliedOfferCode || offerCode || '',
+        coinsRedeemed,
+        coinDiscount,
+        paymentMethod: normalizedPaymentMethod,
+        paymentStatus: normalizedPaymentMethod === 'cash_on_delivery' ? 'pending' : 'paid',
+        deliveryAddress,
+        containsAlcohol,
+        customerNotes: notes || '',
+        status: 'placed',
+        statusHistory: [
+          {
+            status: 'placed',
+            timestamp: new Date(),
+            note: 'Order placed by customer',
+          },
+        ],
+        ageCheckedAtDoor: false,
+      });
+    } catch (writeError) {
+      if (coinsRedeemed > 0) {
+        await coinService.refundSpend({
+          userId: req.user._id,
+          coins: coinsRedeemed,
+          note: 'Refunded: the order could not be placed',
+        });
+      }
+      throw writeError;
+    }
 
     // Populate customer details for socket broadcast
     const populatedOrder = await Order.findById(order._id)
@@ -306,6 +353,7 @@ const updateOrderStatus = async (req, res) => {
       await coinService.awardForDeliveredOrder(Order, order._id);
     } else if (status === 'cancelled' || status === 'refunded') {
       await coinService.reverseForOrder(Order, order._id);
+      await coinService.refundOrderSpend(Order, order._id);
     }
     const updated = await Order.findById(order._id)
       .populate('customer', 'name phone avatarUrl')
@@ -435,6 +483,11 @@ const cancelOrder = async (req, res) => {
     });
 
     await order.save();
+
+    // A customer cancelling their own order gets back anything they paid
+    // for it in coins. Coins are only earned on delivery, and this path
+    // refuses to cancel a delivered order, so there is nothing to reverse.
+    await coinService.refundOrderSpend(Order, order._id);
 
     const updated = await Order.findById(order._id)
       .populate('customer', 'name phone avatarUrl')
