@@ -508,6 +508,8 @@ const getUserConversations = async (req, res) => {
             riderName: order.rider.name,
             riderPhone: order.rider.phone,
             riderVehicle: order.rider.vehicleNumber,
+            // So the customer sees the rider's own photo in the thread list.
+            avatarUrl: order.rider.avatarUrl || '',
             avatarType: 'rider',
             status: order.rider.isOnline ? 'Online on Duty' : 'On Route',
             lastMessage: riderLastMsg ? riderLastMsg.text : `Rider assigned to order #${order.orderNo}. Tap to chat.`,
