@@ -77,6 +77,15 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Products the customer saved. Held on the account rather than on the
+    // device, so a saved drink survives a reinstall and follows them to a
+    // second device.
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+      },
+    ],
     fcmTokens: [{ type: String }],
     // Rider specific fields
     isOnline: {
