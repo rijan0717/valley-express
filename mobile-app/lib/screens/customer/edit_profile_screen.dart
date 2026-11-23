@@ -97,9 +97,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldBg,
+      backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.scaffoldBg,
       appBar: AppBar(title: const Text('Edit Profile')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -139,46 +140,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.inputBg,
+                color: isDark ? AppTheme.darkBgDevice : AppTheme.inputBg,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.phone_iphone_rounded, size: 19, color: AppTheme.textMuted),
+                  Icon(Icons.phone_iphone_rounded,
+                      size: 19,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'MOBILE NUMBER',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.7,
-                            color: AppTheme.textMuted,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted,
                           ),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           user?.phone.isNotEmpty == true ? '+977 ${user!.phone}' : 'Not set',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.textMain,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textMain,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.textSubtle),
+                  Icon(Icons.lock_outline_rounded,
+                      size: 16,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.textSubtle),
                 ],
               ),
             ).authEntrance(index: 2),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Your mobile number identifies the account and receives reset codes, so it cannot be changed here. Contact support to move an account to a new number.',
-              style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted, height: 1.5),
+              style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted,
+                  height: 1.5),
             ),
 
             const SizedBox(height: 26),

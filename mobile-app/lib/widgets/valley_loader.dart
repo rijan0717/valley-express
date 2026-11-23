@@ -1,5 +1,6 @@
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/material.dart';
+import '../core/theme.dart';
 
 /// The Valley Express brand loader, reproducing
 /// `valley-express-logos/valley-express-loader.svg` in Dart.
@@ -186,7 +187,6 @@ class ValleyRefresh extends StatelessWidget {
       onRefresh: onRefresh,
       offsetToArmed: 80,
       builder: (context, child, controller) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         final isRefreshing = controller.state == IndicatorState.loading ||
             controller.state == IndicatorState.settling ||
             controller.state == IndicatorState.finalizing;
@@ -206,21 +206,9 @@ class ValleyRefresh extends StatelessWidget {
                       opacity: isRefreshing ? 1.0 : pullFraction,
                       child: Transform.scale(
                         scale: 0.7 + 0.3 * (isRefreshing ? 1.0 : pullFraction),
-                        child: Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.12),
-                                blurRadius: 20,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const ValleyLoader(size: 64),
+                        child: const Padding(
+                          padding: EdgeInsets.all(18),
+                          child: ValleyLoader(size: 64),
                         ),
                       ),
                     ),
@@ -243,18 +231,22 @@ typedef ValleyRefreshIndicator = ValleyRefresh;
 /// first load, so the brand mark always sits in the middle of the screen.
 class ValleyLoaderScreen extends StatelessWidget {
   final String? label;
-  final Color background;
+  /// Defaults to the active theme app background; a fixed light colour
+  /// here left the loader on a white field in dark mode.
+  final Color? background;
 
   const ValleyLoaderScreen({
     super.key,
     this.label,
-    this.background = const Color(0xFFFAFBFC),
+    this.background,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: background,
+      color: background ??
+          (isDark ? AppTheme.darkBgApp : const Color(0xFFFAFBFC)),
       alignment: Alignment.center,
       child: ValleyLoader(size: 84, label: label),
     );

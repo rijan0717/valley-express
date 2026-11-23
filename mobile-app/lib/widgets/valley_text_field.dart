@@ -40,24 +40,25 @@ class ValleyTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasError = errorText != null && errorText!.isNotEmpty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
-            color: AppTheme.textMuted,
+            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted,
           ),
         ),
         const SizedBox(height: 6),
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
-            color: AppTheme.inputBg,
+            color: isDark ? AppTheme.darkBgDevice : AppTheme.inputBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: hasError ? AppTheme.danger : Colors.transparent,
@@ -73,23 +74,24 @@ class ValleyTextField extends StatelessWidget {
             onChanged: onChanged,
             textInputAction: textInputAction,
             onSubmitted: onSubmitted,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textMain,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textMain,
             ),
             decoration: InputDecoration(
+              filled: false,
               counterText: '',
               hintText: hint,
-              hintStyle: const TextStyle(
-                color: AppTheme.textSubtle,
+              hintStyle: TextStyle(
+                color: isDark ? AppTheme.darkTextMuted : AppTheme.textSubtle,
                 fontWeight: FontWeight.w400,
                 fontSize: 14,
               ),
               prefixIcon: Icon(
                 icon,
                 size: 19,
-                color: hasError ? AppTheme.danger : AppTheme.textMuted,
+                color: hasError ? AppTheme.danger : (isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
               ),
               suffixIcon: suffix,
               border: InputBorder.none,
