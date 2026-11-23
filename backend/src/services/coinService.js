@@ -73,7 +73,13 @@ const awardForDeliveredOrder = async (Order, orderId) => {
   if (coins <= 0) return null;
 
   const claimed = await Order.findOneAndUpdate(
-    { _id: orderId, coinsEarned: 0 },
+    // Orders written before this field existed carry no coinsEarned at all,
+    // and Mongo does not match a missing field against 0, so the claim never
+    // fired for them and the coins were silently never credited.
+    {
+      _id: orderId,
+      $or: [{ coinsEarned: 0 }, { coinsEarned: { $exists: false } }],
+    },
     { $set: { coinsEarned: coins } },
     { new: true }
   );
@@ -93,7 +99,11 @@ const awardForDeliveredOrder = async (Order, orderId) => {
 /// below, so a customer who already spent them is not pushed negative.
 const reverseForOrder = async (Order, orderId) => {
   const claimed = await Order.findOneAndUpdate(
-    { _id: orderId, coinsEarned: { $gt: 0 }, coinsReversed: false },
+    {
+      _id: orderId,
+      coinsEarned: { $gt: 0 },
+      $or: [{ coinsReversed: false }, { coinsReversed: { $exists: false } }],
+    },
     { $set: { coinsReversed: true } },
     { new: true }
   );
