@@ -144,7 +144,11 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// Signs in with a password, using either a mobile number or an email.
-  Future<AuthResult> loginWithPassword(String identifier, String password) async {
+  Future<AuthResult> loginWithPassword(
+    String identifier,
+    String password, {
+    bool rememberMe = true,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -153,7 +157,7 @@ class AuthProvider with ChangeNotifier {
         'password': password,
       });
       if (res.data['success'] == true) {
-        await _persistSession(Map<String, dynamic>.from(res.data));
+        await _persistSession(Map<String, dynamic>.from(res.data), remember: rememberMe);
         return AuthResult(success: true, message: res.data['message'] ?? 'Signed in');
       }
       return AuthResult(success: false, message: res.data['message'] ?? 'Sign in failed');
@@ -359,7 +363,11 @@ class AuthProvider with ChangeNotifier {
     return false;
   }
 
-  Future<bool> riderPasswordLogin(String loginId, String password) async {
+  Future<bool> riderPasswordLogin(
+    String loginId,
+    String password, {
+    bool rememberMe = true,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -369,7 +377,7 @@ class AuthProvider with ChangeNotifier {
       });
 
       if (res.data['success'] == true) {
-        await _persistSession(Map<String, dynamic>.from(res.data));
+        await _persistSession(Map<String, dynamic>.from(res.data), remember: rememberMe);
         _isLoading = false;
         notifyListeners();
         return true;

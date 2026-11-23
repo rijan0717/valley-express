@@ -4,10 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/valley_brand.dart';
 import '../customer/customer_home_screen.dart';
 import '../rider/rider_home_screen.dart';
-import 'phone_login_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -70,12 +68,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Try rider password login first if it's the rider test or credentials
     bool success = false;
-    final res = await auth.loginWithPassword(identifier, password);
+    final res = await auth.loginWithPassword(identifier, password, rememberMe: _rememberMe);
     success = res.success;
 
     if (!success) {
       // Check if this is a rider account
-      success = await auth.riderPasswordLogin(identifier, password);
+      success = await auth.riderPasswordLogin(identifier, password, rememberMe: _rememberMe);
     }
 
     setState(() => _submitting = false);
@@ -104,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
-      _showToast(res.message.isNotEmpty ? res.message : 'Invalid credentials. You can also sign in with SMS OTP.');
+      _showToast(res.message.isNotEmpty ? res.message : 'Invalid credentials. Please check your details and try again.');
     }
   }
 
@@ -287,6 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           hintText: 'email@example.com',
                           prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryOrange, size: 20),
+                          filled: false,
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14),
                         ),
@@ -350,6 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
+                          filled: false,
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(vertical: 14),
                         ),
@@ -410,65 +410,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Sign In',
                               style: AppTheme.displayFont(fontSize: 14, fontWeight: FontWeight.w800),
                             ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // SCOOTER BANNER
-                    Container(
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        child: ValleyRideStrip(height: 44),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // OR QUICK LOGIN WITH SMS OTP
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            'OR QUICK LOGIN',
-                            style: AppTheme.displayFont(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        Expanded(child: Divider(color: isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
-                        );
-                      },
-                      icon: const Icon(Icons.sms_outlined, size: 18, color: AppTheme.navyBrand),
-                      label: Text(
-                        'Sign in with SMS OTP Code',
-                        style: AppTheme.displayFont(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.navyBrand,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.navyBrand, width: 1.2),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
                     ),
                   ],
                 ),

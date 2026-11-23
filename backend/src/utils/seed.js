@@ -50,9 +50,11 @@ const seedData = async () => {
       ageConfirmed: true,
     });
 
+    const riderPasswordHash = await bcrypt.hash('Rider@123', 10);
     const rider1 = await User.create({
       phone: '9811111111',
       name: 'Ramesh Thapa',
+      password: riderPasswordHash,
       role: 'rider',
       isOnline: true,
       vehicleNumber: 'BA 92 PA 1234',
@@ -63,6 +65,7 @@ const seedData = async () => {
     const rider2 = await User.create({
       phone: '9822222222',
       name: 'Bikash Shrestha',
+      password: riderPasswordHash,
       role: 'rider',
       isOnline: true,
       vehicleNumber: 'BA 88 PA 5678',
@@ -73,6 +76,7 @@ const seedData = async () => {
     const customer = await User.create({
       phone: '9841234567',
       name: 'Prajina Maharjan',
+      password: await bcrypt.hash('Customer@123', 10),
       email: 'prajina@example.com',
       role: 'customer',
       ageConfirmed: true,
