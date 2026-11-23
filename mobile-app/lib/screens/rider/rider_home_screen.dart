@@ -18,6 +18,8 @@ import '../customer/edit_profile_screen.dart';
 import '../customer/change_password_screen.dart';
 import '../auth/welcome_screen.dart';
 import '../common/raise_issue_screen.dart';
+import '../common/support_screen.dart';
+import '../common/support_screen.dart';
 import 'rider_notifications_screen.dart';
 import 'rider_order_details_screen.dart';
 import '../customer/chat_inbox_screen.dart';
@@ -715,12 +717,13 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty)
-                        ? Image.network(
-                            user.avatarUrl!,
-                            width: 38,
-                            height: 38,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildInitialsAvatar(initials, size: 38),
+                        // AvatarImage, not Image.network: the photo is stored as a
+                        // data URL, which Image.network cannot decode, so every
+                        // uploaded picture fell through to the initials.
+                        ? AvatarImage(
+                            url: user.avatarUrl!,
+                            size: 38,
+                            fallback: _buildInitialsAvatar(initials, size: 38),
                           )
                         : _buildInitialsAvatar(initials, size: 38),
                   ),
@@ -2044,12 +2047,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                     ClipRRect(
                       borderRadius: BorderRadius.circular(44),
                       child: (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty)
-                          ? Image.network(
-                              user.avatarUrl!,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _buildInitialsAvatar(initials, size: 80, fontSize: 28),
+                          ? AvatarImage(
+                              url: user.avatarUrl!,
+                              size: 80,
+                              fallback: _buildInitialsAvatar(initials, size: 80, fontSize: 28),
                             )
                           : _buildInitialsAvatar(initials, size: 80, fontSize: 28),
                     ),
@@ -2363,7 +2364,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                   subtitle: 'Call Kathmandu Valley Operations Hub',
                   isDark: isDark,
                   iconColor: AppTheme.successGreen,
-                  onTap: () => _callCustomer('014234567', 'Valley Operations Dispatch'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SupportScreen(isRider: true)),
+                  ),
                 ),
               ],
             ),

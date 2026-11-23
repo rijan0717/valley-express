@@ -366,7 +366,14 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
         ),
       ),
       bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        // The inner SafeArea does not clear the gesture bar once this sits
+        // in a bottomSheet, so the action button ended up under it.
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          16 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
           border: Border(
@@ -727,14 +734,19 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Pickup & Navigation Route',
-                style: AppTheme.displayFont(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppTheme.navyBrand,
+              Expanded(
+                child: Text(
+                  'Pickup & Navigation Route',
+                  style: AppTheme.displayFont(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTheme.navyBrand,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
