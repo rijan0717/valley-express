@@ -7,6 +7,7 @@ import Products from './pages/Products';
 import Offers from './pages/Offers';
 import Riders from './pages/Riders';
 import Users from './pages/Users';
+import Coins from './pages/Coins';
 import Chat from './pages/Chat';
 import Issues from './pages/Issues';
 import Settings from './pages/Settings';
@@ -77,6 +78,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Users onReplaySplash={() => setShowSplashOverlay(true)} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/coins"
+            element={
+              <ProtectedRoute>
+                <Coins onReplaySplash={() => setShowSplashOverlay(true)} />
               </ProtectedRoute>
             }
           />
