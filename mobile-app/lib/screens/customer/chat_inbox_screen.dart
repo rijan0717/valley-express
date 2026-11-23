@@ -284,8 +284,8 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
             child: _loading
                 ? const Center(
                     child: ValleyLoader(
-                      variant: 'beer',
-                      text: 'Loading Messenger conversations...',
+                      size: 64,
+                      label: 'Loading conversations...',
                     ),
                   )
                 : _filteredConversations.isEmpty
