@@ -116,8 +116,8 @@ const getAllIssues = async (req, res) => {
     }
 
     const issues = await Issue.find(query)
-      .populate('reporter', 'name phone email role')
-      .populate('resolvedBy', 'name email')
+      .populate('reporter', 'name phone email role avatarUrl')
+      .populate('resolvedBy', 'name email avatarUrl')
       .sort({ createdAt: -1 });
 
     // Aggregate status counts for quick tab filters

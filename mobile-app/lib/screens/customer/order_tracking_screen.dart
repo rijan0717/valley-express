@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/order_provider.dart';
 import '../../core/theme.dart';
+import '../../widgets/avatar_upload_sheet.dart';
 import '../../widgets/valley_loader.dart';
 import '../../core/socket_service.dart';
 import 'chat_screen.dart';
@@ -435,11 +436,25 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(
-                                      Icons.pedal_bike_rounded,
-                                      size: 18,
-                                      color: riderReady ? activeColor : Colors.grey,
-                                    ),
+                                    // The riders own photo when they have set one.
+                                    if ((order.riderAvatarUrl ?? '').isNotEmpty)
+                                      ClipOval(
+                                        child: AvatarImage(
+                                          url: order.riderAvatarUrl!,
+                                          size: 22,
+                                          fallback: Icon(
+                                            Icons.pedal_bike_rounded,
+                                            size: 18,
+                                            color: riderReady ? activeColor : Colors.grey,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Icon(
+                                        Icons.pedal_bike_rounded,
+                                        size: 18,
+                                        color: riderReady ? activeColor : Colors.grey,
+                                      ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(

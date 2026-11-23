@@ -173,7 +173,7 @@ const createOrder = async (req, res) => {
 
     // Populate customer details for socket broadcast
     const populatedOrder = await Order.findById(order._id)
-      .populate('customer', 'name phone')
+      .populate('customer', 'name phone avatarUrl')
       .populate('items.product', 'name price images');
 
     // Notify Admin and Rider Pool in real-time
@@ -217,8 +217,8 @@ const getMyOrders = async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber')
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl')
       .populate('items.product', 'name price images isAlcohol')
       .sort({ createdAt: -1 });
 
@@ -239,8 +239,8 @@ const getAllOrders = async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber')
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl')
       .populate('items.product', 'name price images')
       .sort({ createdAt: -1 });
 
@@ -254,8 +254,8 @@ const getAllOrders = async (req, res) => {
 const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate('customer', 'name phone addresses')
-      .populate('rider', 'name phone vehicleNumber')
+      .populate('customer', 'name phone addresses avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl')
       .populate('items.product', 'name price images isAlcohol');
 
     if (!order) {
@@ -299,8 +299,8 @@ const updateOrderStatus = async (req, res) => {
     await order.save();
 
     const updated = await Order.findById(order._id)
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber');
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl');
 
     // Real-time broadcast to rooms
     try {
@@ -376,8 +376,8 @@ const assignRider = async (req, res) => {
     await order.save();
 
     const updated = await Order.findById(order._id)
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber');
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl');
 
     try {
       getIO().to(`order:${order._id}`).emit('order:status', updated);
@@ -428,8 +428,8 @@ const cancelOrder = async (req, res) => {
     await order.save();
 
     const updated = await Order.findById(order._id)
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber');
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl');
 
     try {
       getIO().to(`order:${order._id}`).emit('order:status', updated);
@@ -479,7 +479,7 @@ const getAvailableOrders = async (req, res) => {
       ],
       status: { $in: ['placed', 'accepted', 'preparing'] },
     })
-      .populate('customer', 'name phone')
+      .populate('customer', 'name phone avatarUrl')
       .populate('items.product', 'name price images isAlcohol')
       .sort({ createdAt: -1 });
 
@@ -521,13 +521,13 @@ const claimOrder = async (req, res) => {
       },
       { new: true }
     )
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber')
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl')
       .populate('items.product', 'name price images');
 
     if (!order) {
       // Check why atomic update failed
-      const existing = await Order.findById(req.params.id).populate('rider', 'name phone');
+      const existing = await Order.findById(req.params.id).populate('rider', 'name phone avatarUrl');
       if (!existing) {
         return res.status(404).json({ success: false, message: 'Order not found' });
       }

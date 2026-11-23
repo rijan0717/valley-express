@@ -41,6 +41,7 @@ class OrderModel {
   final double? longitude;
   final String? riderName;
   final String? riderPhone;
+  final String? riderAvatarUrl;
   final DateTime createdAt;
 
   OrderModel({
@@ -60,6 +61,7 @@ class OrderModel {
     this.longitude,
     this.riderName,
     this.riderPhone,
+    this.riderAvatarUrl,
     required this.createdAt,
   });
 
@@ -89,6 +91,7 @@ class OrderModel {
       longitude: lon,
       riderName: json['rider']?['name'],
       riderPhone: json['rider']?['phone'],
+      riderAvatarUrl: json['rider']?['avatarUrl'],
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),

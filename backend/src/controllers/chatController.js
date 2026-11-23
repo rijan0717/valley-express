@@ -130,7 +130,7 @@ const getMessagesByOrder = async (req, res) => {
     }
 
     const messages = await Message.find(buildThreadQuery(orderId, req.user, channel))
-      .populate('sender', 'name role')
+      .populate('sender', 'name role avatarUrl')
       .sort({ createdAt: 1 });
 
     res.json({ success: true, count: messages.length, channel, messages });
@@ -186,7 +186,7 @@ const sendMessage = async (req, res) => {
       channel,
       text: text.trim(),
     });
-    const populated = await Message.findById(message._id).populate('sender', 'name role');
+    const populated = await Message.findById(message._id).populate('sender', 'name role avatarUrl');
 
     // Broadcast in real-time to order and personal recipient rooms.
     try {
@@ -220,8 +220,8 @@ const getAdminChatThreads = async (req, res) => {
   try {
     // 1. Orders with active messages or in-flight status
     const orders = await Order.find({ status: { $nin: ['cancelled', 'rejected'] } })
-      .populate('customer', 'name phone')
-      .populate('rider', 'name phone vehicleNumber')
+      .populate('customer', 'name phone avatarUrl')
+      .populate('rider', 'name phone vehicleNumber avatarUrl')
       .sort({ updatedAt: -1 })
       .limit(30);
 
@@ -239,7 +239,7 @@ const getAdminChatThreads = async (req, res) => {
 
     // 2. Direct customer inquiries
     const generalMessages = await Message.find({ order: null, channel: 'support' })
-      .populate('customer', 'name phone')
+      .populate('customer', 'name phone avatarUrl')
       .sort({ createdAt: -1 })
       .limit(15);
 
@@ -266,7 +266,7 @@ const getAdminChatThreads = async (req, res) => {
 
     // 3. Rider fleet messages
     const fleetMessages = await Message.find({ channel: 'fleet' })
-      .populate('rider', 'name phone vehicleNumber isOnline')
+      .populate('rider', 'name phone vehicleNumber isOnline avatarUrl')
       .sort({ createdAt: -1 })
       .limit(30);
 
@@ -294,7 +294,7 @@ const getAdminChatThreads = async (req, res) => {
 
     // Also include active riders so admin can initiate contact with any rider
     const activeRiders = await User.find({ role: 'rider', status: 'active' })
-      .select('name phone vehicleNumber isOnline updatedAt')
+      .select('name phone vehicleNumber isOnline updatedAt avatarUrl')
       .limit(10);
     for (const r of activeRiders) {
       if (!seenRiders.has(r._id.toString())) {
@@ -344,7 +344,7 @@ const getFleetChatThreads = async (req, res) => {
     ]);
 
     const riders = await User.find({ _id: { $in: rows.map((r) => r._id).filter(Boolean) } })
-      .select('name phone vehicleNumber isOnline');
+      .select('name phone vehicleNumber isOnline avatarUrl');
     const byId = new Map(riders.map((r) => [String(r._id), r]));
 
     res.json({
@@ -477,7 +477,7 @@ const getUserConversations = async (req, res) => {
 
       // 2. All orders belonging to this customer
       const orders = await Order.find({ customer: user._id })
-        .populate('rider', 'name phone vehicleNumber vehicleType isOnline')
+        .populate('rider', 'name phone vehicleNumber vehicleType isOnline avatarUrl')
         .sort({ createdAt: -1 })
         .limit(50);
 
@@ -578,7 +578,7 @@ const getUserConversations = async (req, res) => {
 
       // 2. Orders assigned to this rider
       const assignedOrders = await Order.find({ rider: user._id })
-        .populate('customer', 'name phone')
+        .populate('customer', 'name phone avatarUrl')
         .sort({ updatedAt: -1 })
         .limit(50);
 

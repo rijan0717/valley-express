@@ -180,7 +180,7 @@ const verifyPayment = async (req, res) => {
     await order.save();
 
     const populatedOrder = await Order.findById(order._id)
-      .populate('customer', 'name phone')
+      .populate('customer', 'name phone avatarUrl')
       .populate('items.product', 'name price images');
 
     // Broadcast live payment update to order room & admin board

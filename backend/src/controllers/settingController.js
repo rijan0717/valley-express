@@ -63,7 +63,7 @@ const updateSettings = async (req, res) => {
 const getAllRiders = async (req, res) => {
   try {
     const riders = await User.find({ role: 'rider' }).select(
-      'name phone email isOnline vehicleNumber vehicleType currentCoordinates status updatedAt'
+      'name phone email isOnline vehicleNumber vehicleType currentCoordinates status updatedAt avatarUrl'
     );
     res.json({ success: true, count: riders.length, riders });
   } catch (error) {
