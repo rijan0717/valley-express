@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const { getIO } = require('../sockets');
+const { verifyGatewayPayment } = require('../services/paymentVerify');
+const { isAdmin, isOrderOwner } = require('../utils/orderAccess');
 
 // Configurable gateway settings (falls back to Nepal Sandbox credentials)
 const ESEWA_CONFIG = {
@@ -86,6 +88,11 @@ const initializePayment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
+    // Only the order's own customer (or an admin) may start its payment.
+    if (!isAdmin(req.user) && !isOrderOwner(order, req.user)) {
+      return res.status(403).json({ success: false, message: 'You cannot pay for this order' });
+    }
+
     const totalAmount = order.total;
     const transactionUuid = `${order.orderNo}-${Date.now()}`;
 
@@ -154,7 +161,15 @@ const initializePayment = async (req, res) => {
 // POST /api/payments/verify
 const verifyPayment = async (req, res) => {
   try {
-    const { orderId, method = 'esewa', transactionId, referenceId } = req.body;
+    const {
+      orderId,
+      method = 'esewa',
+      transactionId,
+      referenceId,
+      // Gateway-issued identifiers used for real server-side confirmation.
+      transactionUuid,
+      pidx,
+    } = req.body;
 
     if (!orderId) {
       return res.status(400).json({ success: false, message: 'Order ID is required' });
@@ -165,15 +180,47 @@ const verifyPayment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    const resolvedTxnId = transactionId || referenceId || `TXN-${Date.now().toString().slice(-6)}`;
+    // Only the customer who owns the order (or an admin) may settle its
+    // payment. Previously any signed-in account could mark any order paid.
+    if (!isAdmin(req.user) && !isOrderOwner(order, req.user)) {
+      return res.status(403).json({ success: false, message: 'You cannot modify this order' });
+    }
 
-    // Update Order payment status in MongoDB
+    // Confirm the payment with the gateway itself — never on the client's word.
+    const gateway = await verifyGatewayPayment(method, {
+      transactionUuid: transactionUuid || referenceId,
+      pidx,
+      totalAmount: order.total,
+    });
+
+    let paid = gateway.verified;
+    let note;
+
+    if (paid) {
+      note = `Online payment confirmed with ${method.toUpperCase()} (ref: ${gateway.reference}).`;
+    } else if (process.env.NODE_ENV !== 'production') {
+      // Local development / demo only: the sandbox has no real transaction to
+      // confirm, so accept a simulated payment but label it clearly. This
+      // branch can never run on a production server.
+      paid = true;
+      note = `SANDBOX simulated payment via ${method.toUpperCase()} (dev only).`;
+    } else {
+      // Production and the gateway did not confirm: refuse to mark it paid.
+      return res.status(402).json({
+        success: false,
+        message: 'Payment could not be confirmed with the provider. It has not been marked as paid.',
+        reason: gateway.reason,
+      });
+    }
+
+    const resolvedTxnId = gateway.reference || transactionId || referenceId || transactionUuid || pidx;
+
     order.paymentMethod = method;
     order.paymentStatus = 'paid';
     order.statusHistory.push({
       status: order.status,
       timestamp: new Date(),
-      note: `Online payment verified via ${method.toUpperCase()} (Txn Ref: ${resolvedTxnId})`,
+      note: `${note} (Txn Ref: ${resolvedTxnId})`,
       changedBy: req.user?._id,
     });
 

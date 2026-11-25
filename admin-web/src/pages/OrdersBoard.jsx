@@ -61,23 +61,9 @@ const OrdersBoard = ({ onReplaySplash }) => {
 
   const fetchOrdersAndRiders = async () => {
     try {
-      let token = localStorage.getItem('valley_token');
-      if (!token) {
-        try {
-          const authRes = await api.post('/auth/admin-login', {
-            email: 'admin@gmail.com',
-            password: 'Password@123',
-          });
-          if (authRes.data.success) {
-            token = authRes.data.token;
-            localStorage.setItem('valley_token', token);
-            localStorage.setItem('valley_user', JSON.stringify(authRes.data.user));
-          }
-        } catch {
-          // ignore
-        }
-      }
-
+      // Uses the signed-in admin session (ProtectedRoute + token interceptor).
+      // The previous hardcoded admin auto-login shipped the admin password in
+      // the client bundle.
       const [oRes, rRes] = await Promise.all([
         api.get('/orders'),
         api.get('/admin/settings/riders'),
