@@ -72,23 +72,10 @@ const MobilePreview = ({ onReplaySplash }) => {
   // Load products, categories & existing orders
   useEffect(() => {
     const initSimulatorSession = async () => {
-      let token = localStorage.getItem('valley_token');
-      if (!token) {
-        try {
-          const loginRes = await api.post('/auth/admin-login', {
-            email: 'admin@gmail.com',
-            password: 'Password@123',
-          });
-          if (loginRes.data.success) {
-            token = loginRes.data.token;
-            localStorage.setItem('valley_token', token);
-            localStorage.setItem('valley_user', JSON.stringify(loginRes.data.user));
-          }
-        } catch {
-          // Continue with public endpoints
-        }
-      }
-
+      // Runs under the signed-in admin's session (this page is now behind
+      // ProtectedRoute). It previously signed in with a hardcoded admin email
+      // and password, which both shipped those credentials in the bundle and
+      // let anyone opening this public page obtain an admin token.
       api.get('/products').then((res) => {
         if (res.data.success) setProducts(res.data.products);
       }).catch(() => {}).finally(() => setCatalogLoading(false));

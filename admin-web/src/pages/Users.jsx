@@ -32,23 +32,10 @@ const Users = ({ onReplaySplash }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      let token = localStorage.getItem('valley_token');
-      if (!token) {
-        try {
-          const authRes = await api.post('/auth/admin-login', {
-            email: 'admin@gmail.com',
-            password: 'Password@123',
-          });
-          if (authRes.data.success) {
-            token = authRes.data.token;
-            localStorage.setItem('valley_token', token);
-            localStorage.setItem('valley_user', JSON.stringify(authRes.data.user));
-          }
-        } catch {
-          // Continue
-        }
-      }
-
+      // Uses the session established at real sign-in. This page is behind
+      // ProtectedRoute and the API client attaches the stored token. (It used
+      // to silently sign in with a hardcoded admin email and password, which
+      // shipped those credentials in the JavaScript bundle.)
       const res = await api.get('/users');
       if (res.data.success) {
         setUsers(res.data.users);

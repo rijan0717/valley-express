@@ -10,6 +10,8 @@ const {
   changePassword,
   sendOtp,
   verifyOtp,
+  refresh,
+  logout,
   getMe,
   updateProfile,
   toggleRiderStatus,
@@ -25,6 +27,10 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyOtp);
+// Token lifecycle. refresh swaps a refresh token for a new access token;
+// logout revokes it. protect is optional on logout (allDevices needs a user).
+router.post('/refresh', refresh);
+router.post('/logout', logout);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);

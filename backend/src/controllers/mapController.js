@@ -1,6 +1,73 @@
 // Open API Map Controller: OpenStreetMap (OSM) & Nominatim Engine
 // Provides live place search, reverse-geocoding, and Kathmandu Valley landmark database.
 
+const dns = require('dns').promises;
+const net = require('net');
+
+// SSRF guard for resolveLocationUrl.
+//
+// That handler fetches a URL supplied by the caller to pull coordinates out of
+// a Google Maps share link. Left open, it will fetch *any* URL server-side —
+// internal services, cloud metadata (169.254.169.254), localhost admin ports —
+// turning the API into a proxy into its own network. We therefore (a) only
+// follow links on a short allow-list of map/shortener hosts, and (b) refuse any
+// host that resolves to a private, loopback, link-local or otherwise non-public
+// address.
+
+const ALLOWED_URL_HOSTS = [
+  'google.com', 'www.google.com', 'maps.google.com', 'maps.app.goo.gl',
+  'goo.gl', 'g.co', 'openstreetmap.org', 'www.openstreetmap.org', 'osm.org',
+];
+
+const hostAllowed = (hostname) => {
+  const h = hostname.toLowerCase();
+  return ALLOWED_URL_HOSTS.some((allowed) => h === allowed || h.endsWith(`.${allowed}`));
+};
+
+// True for addresses that must never be reached from a server-side fetch.
+const isPrivateAddress = (ip) => {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 10) return true;
+    if (a === 127) return true;                     // loopback
+    if (a === 169 && b === 254) return true;        // link-local / cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 0) return true;
+    return false;
+  }
+  // IPv6: block loopback, link-local (fe80::/10) and unique-local (fc00::/7).
+  const v = ip.toLowerCase();
+  if (v === '::1' || v === '::') return true;
+  if (v.startsWith('fe8') || v.startsWith('fe9') || v.startsWith('fea') || v.startsWith('feb')) return true;
+  if (v.startsWith('fc') || v.startsWith('fd')) return true;
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d)
+  const mapped = v.match(/::ffff:(\d+\.\d+\.\d+\.\d+)/);
+  if (mapped) return isPrivateAddress(mapped[1]);
+  return false;
+};
+
+// Resolve the host and confirm every address it maps to is public.
+const isUrlSafeToFetch = async (rawUrl) => {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  if (!hostAllowed(parsed.hostname)) return false;
+  // A literal IP in the URL still has to be public.
+  if (net.isIP(parsed.hostname) && isPrivateAddress(parsed.hostname)) return false;
+  try {
+    const records = await dns.lookup(parsed.hostname, { all: true });
+    if (!records.length) return false;
+    return records.every((r) => !isPrivateAddress(r.address));
+  } catch {
+    return false;
+  }
+};
+
 const KATHMANDU_VALLEY_LANDMARKS = [
   {
     id: 'kv-1',
@@ -523,22 +590,52 @@ const resolveLocationUrl = async (req, res) => {
 
     // 3. If it looks like a URL (especially goo.gl / maps.app.goo.gl), follow redirects
     if (/^https?:\/\//i.test(rawInput)) {
+      // Refuse to fetch anything that is not a public map/shortener host. This
+      // closes the SSRF: without it the server would fetch arbitrary internal
+      // URLs on the caller's behalf.
+      if (!(await isUrlSafeToFetch(rawInput))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Only public Google Maps or OpenStreetMap links can be resolved.',
+        });
+      }
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        const response = await fetch(rawInput, {
-          method: 'GET',
-          redirect: 'follow',
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
-          signal: controller.signal,
-        });
+        // Follow redirects by hand so every hop is re-checked against the
+        // allow-list and the private-address guard. A plain redirect:'follow'
+        // would let an allow-listed shortener bounce the request to an internal
+        // address, re-opening the SSRF.
+        let currentUrl = rawInput;
+        let response;
+        for (let hop = 0; hop < 5; hop++) {
+          response = await fetch(currentUrl, {
+            method: 'GET',
+            redirect: 'manual',
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+            signal: controller.signal,
+          });
+          if (response.status >= 300 && response.status < 400 && response.headers.get('location')) {
+            const next = new URL(response.headers.get('location'), currentUrl).toString();
+            if (!(await isUrlSafeToFetch(next))) {
+              clearTimeout(timeoutId);
+              return res.status(400).json({
+                success: false,
+                message: 'The link redirects to a location that cannot be resolved.',
+              });
+            }
+            currentUrl = next;
+            continue;
+          }
+          break;
+        }
         clearTimeout(timeoutId);
 
-        const finalUrl = response.url || rawInput;
+        const finalUrl = currentUrl;
 
         // Check resolved URL for coords
         const finalProtobuf = finalUrl.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);

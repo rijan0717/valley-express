@@ -106,7 +106,11 @@ function App() {
           />
           <Route
             path="/mobile-preview"
-            element={<MobilePreview onReplaySplash={() => setShowSplashOverlay(true)} />}
+            element={
+              <ProtectedRoute>
+                <MobilePreview onReplaySplash={() => setShowSplashOverlay(true)} />
+              </ProtectedRoute>
+            }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

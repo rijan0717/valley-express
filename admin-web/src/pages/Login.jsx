@@ -5,9 +5,17 @@ import { LogoFull } from '../components/Logo';
 import ValleyLoader from '../components/ValleyLoader';
 
 const Login = () => {
-  const [email, setEmail] = useState(() => localStorage.getItem('valley_remember_email') || 'admin@gmail.com');
-  const [password, setPassword] = useState(() => localStorage.getItem('valley_remember_password') || 'Password@123');
+  const [email, setEmail] = useState(() => localStorage.getItem('valley_remember_email') || '');
+  // The password is never read from, or written to, storage. Keeping it in
+  // localStorage left the admin password in clear text on the machine, where
+  // any script on the page (or anyone at the keyboard) could read it.
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('valley_remember_me') === 'true');
+
+  // Remove any password left behind by an older build of this page.
+  React.useEffect(() => {
+    localStorage.removeItem('valley_remember_password');
+  }, []);
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
@@ -33,13 +41,12 @@ const Login = () => {
     const res = await login(email, password);
     if (res.success) {
       if (rememberMe) {
+        // Remember the email to save typing — never the password.
         localStorage.setItem('valley_remember_me', 'true');
         localStorage.setItem('valley_remember_email', email.trim());
-        localStorage.setItem('valley_remember_password', password);
       } else {
         localStorage.removeItem('valley_remember_me');
         localStorage.removeItem('valley_remember_email');
-        localStorage.removeItem('valley_remember_password');
       }
       navigate('/');
     } else {
@@ -119,7 +126,7 @@ const Login = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password@123"
+                placeholder="Enter your password"
                 autoComplete="current-password"
               />
             </div>
