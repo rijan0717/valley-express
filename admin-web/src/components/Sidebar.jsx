@@ -73,13 +73,6 @@ const UsersIcon = () => (
   </svg>
 );
 
-const MobileIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-    <line x1="12" y1="18" x2="12.01" y2="18" />
-  </svg>
-);
-
 const IssuesIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
@@ -111,7 +104,6 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
     { to: '/admin/issues', label: 'Reported Issues', icon: <IssuesIcon /> },
     { to: '/admin/enquiries', label: 'Contact Us', icon: <ContactIcon /> },
     { to: '/admin/settings', label: 'Store Settings', icon: <SettingsIcon /> },
-    { to: '/admin/mobile-preview', label: 'Mobile Preview', icon: <MobileIcon /> },
   ];
 
   return (

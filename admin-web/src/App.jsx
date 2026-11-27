@@ -21,7 +21,6 @@ const Chat = lazy(() => import('./pages/Chat'));
 const Issues = lazy(() => import('./pages/Issues'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Enquiries = lazy(() => import('./pages/Enquiries'));
-const MobilePreview = lazy(() => import('./pages/MobilePreview'));
 const Login = lazy(() => import('./pages/Login'));
 const AdminProviders = lazy(() => import('./routes/AdminProviders'));
 
@@ -60,7 +59,6 @@ const LEGACY_ADMIN_PATHS = [
   'issues',
   'settings',
   'enquiries',
-  'mobile-preview',
 ];
 
 /** Shown for the moment it takes the dashboard chunk to arrive. */
@@ -182,14 +180,6 @@ function AdminShell() {
             element={
               <ProtectedRoute>
                 <Settings onReplaySplash={replaySplash} />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="mobile-preview"
-            element={
-              <ProtectedRoute>
-                <MobilePreview onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
