@@ -1,27 +1,81 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import OrdersBoard from './pages/OrdersBoard';
-import Products from './pages/Products';
-import Offers from './pages/Offers';
-import Riders from './pages/Riders';
-import Users from './pages/Users';
-import Coins from './pages/Coins';
-import Chat from './pages/Chat';
-import Issues from './pages/Issues';
-import Settings from './pages/Settings';
-import MobilePreview from './pages/MobilePreview';
-import Login from './pages/Login';
 import ProtectedRoute from './routes/ProtectedRoute';
-import SplashScreenAnimation from './components/SplashScreenAnimation';
+import ValleyLoader from './components/ValleyLoader';
+import { useLayout } from './context/LayoutContext';
 import { useAuth } from './context/AuthContext';
-import { LayoutProvider, useLayout } from './context/LayoutContext';
 
-function AppShell() {
+// The dashboard is loaded on demand. A visitor reading the public site should
+// not download the operations screens, the chat client or the map pickers that
+// come with them — it is the bulk of the bundle and none of it is theirs.
+const Sidebar = lazy(() => import('./components/Sidebar'));
+const SplashScreenAnimation = lazy(() => import('./components/SplashScreenAnimation'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const OrdersBoard = lazy(() => import('./pages/OrdersBoard'));
+const Products = lazy(() => import('./pages/Products'));
+const Offers = lazy(() => import('./pages/Offers'));
+const Riders = lazy(() => import('./pages/Riders'));
+const Users = lazy(() => import('./pages/Users'));
+const Coins = lazy(() => import('./pages/Coins'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Issues = lazy(() => import('./pages/Issues'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Enquiries = lazy(() => import('./pages/Enquiries'));
+const MobilePreview = lazy(() => import('./pages/MobilePreview'));
+const Login = lazy(() => import('./pages/Login'));
+const AdminProviders = lazy(() => import('./routes/AdminProviders'));
+
+// Public marketing site
+import SiteLayout from './site/components/SiteLayout';
+import Home from './site/pages/Home';
+import About from './site/pages/About';
+import Blog from './site/pages/Blog';
+import BlogPost from './site/pages/BlogPost';
+import Contact from './site/pages/Contact';
+import NotFound from './site/pages/NotFound';
+import LegalPage from './site/pages/LegalPage';
+import './site/site.css';
+
+/**
+ * Two applications share one bundle:
+ *
+ *   /            the public website customers see and search engines index
+ *   /admin/*     the operations dashboard, behind ProtectedRoute
+ *   /login       the staff sign-in, reachable only by typing the address
+ *
+ * Nothing on the public side links to /login or /admin by design — the
+ * dashboard is staff software and does not advertise itself to visitors.
+ */
+
+// Dashboard pages used to live at the root. Anything bookmarked back then is
+// forwarded rather than dropped on the public 404.
+const LEGACY_ADMIN_PATHS = [
+  'orders',
+  'products',
+  'offers',
+  'riders',
+  'users',
+  'coins',
+  'chat',
+  'issues',
+  'settings',
+  'enquiries',
+  'mobile-preview',
+];
+
+/** Shown for the moment it takes the dashboard chunk to arrive. */
+const AdminChunkLoader = () => (
+  <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+    <ValleyLoader text="Loading dashboard…" variant="scooter" size="lg" />
+  </div>
+);
+
+function AdminShell() {
   const { isAuthenticated } = useAuth();
   const { sidebarOpen, closeSidebar } = useLayout();
   const [showSplashOverlay, setShowSplashOverlay] = useState(false);
+
+  const replaySplash = () => setShowSplashOverlay(true);
 
   return (
     <div className="app-container">
@@ -43,109 +97,152 @@ function AppShell() {
       )}
       <main className="main-content">
         <Routes>
-          <Route path="/login" element={<Login />} />
           <Route
-            path="/"
+            index
             element={
               <ProtectedRoute>
-                <Dashboard onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Dashboard onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/orders"
+            path="orders"
             element={
               <ProtectedRoute>
-                <OrdersBoard onReplaySplash={() => setShowSplashOverlay(true)} />
+                <OrdersBoard onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/products"
+            path="products"
             element={
               <ProtectedRoute>
-                <Products onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Products onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/offers"
+            path="offers"
             element={
               <ProtectedRoute>
-                <Offers onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Offers onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/riders"
+            path="riders"
             element={
               <ProtectedRoute>
-                <Riders onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Riders onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/users"
+            path="users"
             element={
               <ProtectedRoute>
-                <Users onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Users onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/coins"
+            path="coins"
             element={
               <ProtectedRoute>
-                <Coins onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Coins onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/chat"
+            path="chat"
             element={
               <ProtectedRoute>
-                <Chat onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Chat onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/issues"
+            path="issues"
             element={
               <ProtectedRoute>
-                <Issues onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Issues onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/settings"
+            path="enquiries"
             element={
               <ProtectedRoute>
-                <Settings onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Enquiries onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/mobile-preview"
+            path="settings"
             element={
               <ProtectedRoute>
-                <MobilePreview onReplaySplash={() => setShowSplashOverlay(true)} />
+                <Settings onReplaySplash={replaySplash} />
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+            path="mobile-preview"
+            element={
+              <ProtectedRoute>
+                <MobilePreview onReplaySplash={replaySplash} />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </main>
     </div>
   );
 }
 
-// The provider has to sit outside the shell, since the shell is what reads
-// the sidebar state it holds.
 function App() {
   return (
-    <LayoutProvider>
-      <AppShell />
-    </LayoutProvider>
+    <Routes>
+      {/* Public website */}
+      <Route element={<SiteLayout />}>
+        <Route index element={<Home />} />
+        <Route path="about" element={<About />} />
+        <Route path="blog" element={<Blog />} />
+        <Route path="blog/:slug" element={<BlogPost />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="privacy" element={<LegalPage name="privacy" />} />
+        <Route path="terms" element={<LegalPage name="terms" />} />
+        <Route path="refunds" element={<LegalPage name="refunds" />} />
+        <Route path="ride-with-us" element={<LegalPage name="ride-with-us" />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+
+      {/* Staff sign-in: typed, never linked */}
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<AdminChunkLoader />}>
+            <Login />
+          </Suspense>
+        }
+      />
+
+      {/* Operations dashboard */}
+      <Route
+        path="/admin/*"
+        element={
+          <Suspense fallback={<AdminChunkLoader />}>
+            <AdminProviders>
+              <AdminShell />
+            </AdminProviders>
+          </Suspense>
+        }
+      />
+
+      {LEGACY_ADMIN_PATHS.map((path) => (
+        <Route key={path} path={`/${path}`} element={<Navigate to={`/admin/${path}`} replace />} />
+      ))}
+    </Routes>
   );
 }
 

@@ -1,0 +1,1342 @@
+/* ==========================================================================
+   Valley Express — public website
+
+   Tokens below are taken from the supplied design mockup (Main.dc.html), not
+   invented: wordmark blue #003893, the letterspaced "EXPRESS" orange #E8590C,
+   secondary text #3D4A6B, mark orange #FF6B1A, 34px mark radius. Labels across
+   the site reuse the wordmark's wide-tracking treatment so the page and the
+   logo read as one piece of design.
+
+   Everything is namespaced under .vx-, so no rule here can reach the dashboard.
+   ========================================================================== */
+
+.vx-site {
+  --vx-orange: #ff6b1a;        /* the mark */
+  --vx-orange-deep: #e8590c;   /* "EXPRESS" in the wordmark */
+  --vx-blue: #003893;          /* "Valley" in the wordmark */
+  --vx-ink: #1f2a44;
+  --vx-ink-deep: #0b1226;
+  --vx-slate: #3d4a6b;         /* the mockup's tagline grey-blue */
+  --vx-line: #e3e7ee;
+  --vx-paper: #fbfaf8;
+  --vx-radius: 4px;
+  --vx-radius-mark: 12px;
+  --vx-shell: 1200px;
+
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--vx-ink);
+  background: #fff;
+  font-size: 16px;
+  line-height: 1.62;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.vx-site h1,
+.vx-site h2,
+.vx-site h3 {
+  color: var(--vx-blue);
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+  font-weight: 700;
+}
+
+.vx-container {
+  width: 100%;
+  max-width: var(--vx-shell);
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.vx-skip-link {
+  position: absolute;
+  left: -9999px;
+  background: var(--vx-blue);
+  color: #fff;
+  padding: 10px 16px;
+  z-index: 200;
+}
+.vx-skip-link:focus { left: 12px; top: 12px; }
+
+/* The wordmark's wide-tracking treatment, reused for every small label. */
+.vx-kicker,
+.vx-eyebrow,
+.vx-lockup-type small,
+.vx-index-tag,
+.vx-hero-facts dt,
+.vx-contact-list dt {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--vx-orange-deep);
+}
+.vx-kicker,
+.vx-eyebrow {
+  display: inline-block;
+  margin-bottom: 16px;
+}
+.vx-kicker-light { color: #ffb782; }
+
+/* -------------------------------------------------------------- typography */
+.vx-h2 {
+  font-size: clamp(28px, 3.4vw, 42px);
+  margin-bottom: 16px;
+  max-width: 18ch;
+}
+.vx-site .vx-h2-light { color: #fff; }
+.vx-h3 { font-size: 19px; margin-bottom: 10px; }
+.vx-lead {
+  font-size: 19px;
+  color: var(--vx-ink);
+  margin-bottom: 18px;
+}
+.vx-body { color: var(--vx-slate); margin-bottom: 16px; }
+.vx-body-light { color: rgba(255, 255, 255, 0.88); }
+.vx-note {
+  font-size: 14px;
+  color: var(--vx-slate);
+  border-left: 2px solid var(--vx-orange);
+  padding-left: 16px;
+  margin-top: 24px;
+}
+.vx-prose { max-width: 680px; }
+.vx-prose .vx-h2 { margin-top: 40px; }
+.vx-disclaimer {
+  margin-top: 30px;
+  font-size: 12px;
+  color: #66718a;
+  text-align: center;
+}
+.vx-disclaimer-left {
+  text-align: left;
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid var(--vx-line);
+}
+
+/* ----------------------------------------------------------------- buttons */
+.vx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--vx-radius);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 22px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.vx-btn:hover { text-decoration: none; }
+.vx-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.vx-btn-lg { padding: 15px 28px; font-size: 15px; }
+.vx-btn-block { width: 100%; }
+.vx-btn-primary { background: var(--vx-orange); color: #fff; }
+.vx-btn-primary:hover { background: var(--vx-orange-deep); }
+.vx-btn-ghost { background: transparent; color: var(--vx-blue); border-color: var(--vx-line); }
+.vx-btn-ghost:hover { border-color: var(--vx-blue); }
+.vx-btn-light { background: #fff; color: var(--vx-blue); }
+.vx-btn-light:hover { background: #f1f3f7; }
+.vx-btn-ghost-light {
+  background: transparent;
+  color: var(--vx-blue);
+  border-color: var(--vx-line);
+  margin-top: 8px;
+}
+.vx-btn-ghost-light:hover { border-color: var(--vx-orange); color: var(--vx-orange-deep); }
+
+/* A text link that moves rather than a second button competing with the CTA. */
+.vx-link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  padding: 12px 0;
+}
+.vx-link-arrow::after {
+  content: '→';
+  transition: transform 0.22s ease;
+}
+.vx-link-arrow:hover { text-decoration: none; }
+.vx-link-arrow:hover::after { transform: translateX(5px); }
+.vx-hero .vx-link-arrow { color: var(--vx-blue); }
+
+/* ------------------------------------------------------------------ header */
+.vx-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.25s ease;
+}
+.vx-header.is-scrolled { border-bottom-color: var(--vx-line); }
+.vx-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  height: 76px;
+}
+.vx-logo-link { display: flex; align-items: center; text-decoration: none; }
+.vx-lockup { display: inline-flex; align-items: center; gap: 11px; }
+.vx-lockup img { border-radius: 8px; }
+.vx-lockup-type { display: flex; flex-direction: column; line-height: 1; }
+.vx-lockup-type strong {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--vx-blue);
+  letter-spacing: -0.045em;
+}
+.vx-lockup-type small {
+  font-size: 9px;
+  letter-spacing: 0.42em;
+  margin-top: 3px;
+}
+.vx-nav { display: flex; align-items: center; gap: 30px; margin-left: auto; }
+.vx-nav-link {
+  position: relative;
+  color: var(--vx-slate);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 4px 0;
+}
+.vx-nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1.5px;
+  width: 0;
+  background: var(--vx-orange);
+  transition: width 0.24s ease;
+}
+.vx-nav-link:hover,
+.vx-nav-link.is-active { color: var(--vx-blue); text-decoration: none; }
+.vx-nav-link:hover::after,
+.vx-nav-link.is-active::after { width: 100%; }
+.vx-header-actions { display: flex; align-items: center; gap: 12px; }
+.vx-burger {
+  display: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  background: #fff;
+  position: relative;
+  cursor: pointer;
+}
+.vx-burger span,
+.vx-burger span::before,
+.vx-burger span::after {
+  position: absolute;
+  left: 11px;
+  width: 18px;
+  height: 1.5px;
+  background: var(--vx-ink);
+  transition: transform 0.22s ease, opacity 0.18s ease;
+}
+.vx-burger span { top: 20px; }
+.vx-burger span::before,
+.vx-burger span::after { content: ''; left: 0; }
+.vx-burger span::before { top: -6px; }
+.vx-burger span::after { top: 6px; }
+.vx-burger span.is-open { background: transparent; }
+.vx-burger span.is-open::before { transform: translateY(6px) rotate(45deg); }
+.vx-burger span.is-open::after { transform: translateY(-6px) rotate(-45deg); }
+.vx-mobile-nav { overflow: hidden; background: #fff; border-bottom: 1px solid var(--vx-line); }
+.vx-mobile-nav-inner {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 20px;
+}
+.vx-mobile-link {
+  padding: 15px 2px;
+  color: var(--vx-ink);
+  font-weight: 500;
+  border-bottom: 1px solid var(--vx-line);
+  text-decoration: none;
+}
+.vx-mobile-link.is-active { color: var(--vx-orange-deep); }
+.vx-mobile-nav-inner .vx-btn { margin-top: 18px; }
+
+/* -------------------------------------------------------------------- hero */
+.vx-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(176deg, #fff4ec 0%, #fffaf6 46%, #ffffff 100%);
+  color: var(--vx-ink);
+  padding: 70px 0 0;
+}
+.vx-hero-backdrop { position: absolute; inset: 0; pointer-events: none; }
+.vx-hero-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(820px 460px at 82% 6%, rgba(255, 107, 26, 0.2), transparent 66%),
+    radial-gradient(640px 440px at 6% 88%, rgba(255, 149, 71, 0.14), transparent 64%);
+}
+/* The route stays in the lower band of the hero so it never strikes through
+   the headline. */
+.vx-hero-route {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 50%;
+}
+/* A whisper of grain, so the gradient does not read as flat vector mush. */
+.vx-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+}
+.vx-hero-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.02fr 1.08fr;
+  gap: 44px;
+  align-items: center;
+  padding-bottom: 46px;
+}
+.vx-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--vx-slate);
+  background: #fff;
+  border: 1px solid var(--vx-line);
+  border-radius: 999px;
+  padding: 6px 15px 6px 12px;
+  margin-bottom: 26px;
+}
+.vx-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #12a150;
+  box-shadow: 0 0 0 3px rgba(18, 161, 80, 0.16);
+}
+.vx-site .vx-hero-title {
+  font-size: clamp(38px, 5vw, 60px);
+  color: var(--vx-blue);
+  margin-bottom: 20px;
+  letter-spacing: -0.04em;
+  max-width: 15ch;
+}
+.vx-hero-accent { display: block; color: var(--vx-orange); }
+.vx-hero-sub {
+  font-size: 17px;
+  color: var(--vx-slate);
+  max-width: 46ch;
+  margin-bottom: 26px;
+}
+.vx-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 36px;
+}
+.vx-hero-facts {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: 32px;
+  margin: 0;
+  padding-top: 10px;
+}
+.vx-hero-facts dt { margin-bottom: 6px; }
+.vx-hero-facts dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--vx-ink);
+}
+
+/* Category ticker along the foot of the hero */
+.vx-ticker {
+  position: relative;
+  border-top: 1px solid var(--vx-line);
+  border-bottom: 1px solid var(--vx-line);
+  background: #fff;
+  overflow: hidden;
+  padding: 16px 0;
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.vx-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: vxTicker 42s linear infinite;
+}
+.vx-ticker:hover .vx-ticker-track { animation-play-state: paused; }
+.vx-ticker-group { display: flex; }
+.vx-ticker-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 34px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vx-ink);
+  white-space: nowrap;
+}
+.vx-ticker-item i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--vx-orange);
+  transform: translateY(-3px);
+}
+.vx-ticker-item small { font-size: 13px; color: #66718a; }
+@keyframes vxTicker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ---------------------------------------------------------- hero showcase */
+/* Three columns of phones scrolling vertically, the middle one against the
+   other two. Each track holds its phones twice and moves exactly -50%, so the
+   loop has no seam. Pure CSS: it runs on the compositor and costs no timers. */
+.vx-hero-visual { position: relative; }
+.vx-cluster {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  height: 540px;
+  overflow: hidden;
+  /* Phones fade out at the ends instead of being cut off by a hard edge. */
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 11%, #000 89%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 11%, #000 89%, transparent);
+}
+.vx-ph-col { flex: none; }
+.vx-ph-track {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  will-change: transform;
+  animation: vxMarqueeUp var(--marquee-duration, 32s) linear infinite;
+}
+.vx-ph-track-down { animation-name: vxMarqueeDown; }
+/* The outer columns start part-way along so the three never line up. */
+.vx-ph-col-a .vx-ph-track { animation-delay: -6s; }
+.vx-ph-col-c .vx-ph-track { animation-delay: -14s; }
+.vx-cluster:hover .vx-ph-track { animation-play-state: paused; }
+
+@keyframes vxMarqueeUp {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+@keyframes vxMarqueeDown {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
+}
+
+/* An iPhone, drawn in CSS. Proportions follow a 16 Pro: ~14% corner radius,
+   a Dynamic Island about a third of the screen wide floating below the top
+   edge, and the action/volume rail on the left with the side button opposite. */
+.vx-ph {
+  width: var(--ph-w);
+  max-width: 100%;
+  position: relative;
+  padding: 5px;
+  border-radius: 30px;
+  background: linear-gradient(145deg, #5a6068 0%, #2b2f36 26%, #16181d 62%, #3b4049 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+    0 2px 3px rgba(255, 255, 255, 0.22) inset,
+    0 22px 42px rgba(31, 42, 68, 0.22);
+}
+.vx-ph-btn {
+  position: absolute;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #4b5159, #23272e);
+  z-index: 1;
+}
+.vx-ph-btn-action { left: -2px; top: 17%; height: 5%; }
+.vx-ph-btn-up { left: -2px; top: 25%; height: 9%; }
+.vx-ph-btn-down { left: -2px; top: 36%; height: 9%; }
+.vx-ph-btn-power { right: -2px; top: 29%; height: 13%; }
+
+.vx-ph-screen {
+  position: relative;
+  background: #fff;
+  border-radius: 25px;
+  overflow: hidden;
+  aspect-ratio: 344 / 746;
+}
+.vx-ph-screen picture { display: block; height: 100%; }
+.vx-ph-shot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+/* Dynamic Island */
+.vx-ph-island {
+  position: absolute;
+  top: 2.4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 31%;
+  height: 4.4%;
+  min-height: 12px;
+  background: #06070a;
+  border-radius: 999px;
+  z-index: 3;
+}
+/* home indicator */
+.vx-ph-home {
+  position: absolute;
+  bottom: 1%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 33%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(10, 14, 22, 0.42);
+  z-index: 3;
+}
+/* the light a glass screen catches, kept faint so it never fights the UI */
+.vx-ph-glare {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 30%, transparent 52%);
+}
+
+/* ---------------------------------------------------------------- sections */
+.vx-section { padding: 92px 0; }
+.vx-section-grey { background: var(--vx-paper); }
+.vx-section-paper {
+  background: linear-gradient(180deg, #fff6ef 0%, #fffaf6 100%);
+}
+.vx-section-head { max-width: 640px; margin-bottom: 46px; }
+.vx-section-head-row {
+  max-width: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.vx-section-head-row .vx-link-arrow { color: var(--vx-blue); }
+
+/* ------------------------------------------------------------- split block */
+.vx-split {
+  display: grid;
+  grid-template-columns: 1.06fr 0.94fr;
+  gap: 64px;
+  align-items: stretch;
+}
+.vx-split-copy { align-self: center; }
+.vx-fleet {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  background: var(--vx-paper);
+  border: 1px solid var(--vx-line);
+  overflow: hidden;
+}
+/* The scooter sits on a tinted stage with a road line, so the panel reads as
+   a composed image rather than clip-art floating in a box. */
+.vx-fleet-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 18px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--vx-line);
+}
+
+.vx-fleet-scooter { position: relative; width: 100%; max-width: 460px; height: auto; }
+.vx-fleet figcaption {
+  padding: 24px 28px 20px;
+  text-align: left;
+}
+.vx-fleet figcaption strong {
+  display: block;
+  color: var(--vx-blue);
+  font-size: 17px;
+  margin-bottom: 5px;
+}
+.vx-fleet figcaption span { font-size: 14.5px; color: var(--vx-slate); }
+.vx-fleet-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--vx-line);
+}
+.vx-fleet-stats > div { padding: 16px 18px; }
+.vx-fleet-stats > div + div { border-left: 1px solid var(--vx-line); }
+.vx-fleet-stats dt {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--vx-orange-deep);
+  margin-bottom: 5px;
+}
+.vx-fleet-stats dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vx-blue);
+}
+
+/* ------------------------------- features: an editorial list, not a grid */
+.vx-sticky-split {
+  display: grid;
+  grid-template-columns: 0.82fr 1.18fr;
+  gap: 72px;
+  align-items: start;
+}
+.vx-sticky-head { position: sticky; top: 118px; }
+.vx-sticky-head .vx-h2 { max-width: 14ch; }
+.vx-list { border-top: 1px solid var(--vx-line); }
+.vx-list-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--vx-line);
+  transition: background 0.2s ease;
+}
+.vx-list-row:hover { background: rgba(255, 255, 255, 0.76); }
+.vx-list-index {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: #9aa6bb;
+  padding-top: 6px;
+}
+.vx-list-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 107, 26, 0.12);
+  color: var(--vx-orange-deep);
+}
+.vx-site .vx-list-row h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+.vx-list-row p {
+  font-size: 14.5px;
+  color: var(--vx-slate);
+  max-width: 62ch;
+}
+
+/* --------------------------------------- how it works: a route, not boxes */
+.vx-route {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+.vx-route::before {
+  content: '';
+  position: absolute;
+  top: 21px;
+  left: 7%;
+  right: 7%;
+  height: 2px;
+  background-image: linear-gradient(90deg, var(--vx-orange) 52%, transparent 52%);
+  background-size: 13px 2px;
+  opacity: 0.45;
+}
+.vx-route-stop { position: relative; padding-top: 0; }
+.vx-route-dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--vx-orange);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 22px;
+  box-shadow: 0 0 0 7px #fff, 0 0 0 8px rgba(255, 107, 26, 0.22);
+}
+.vx-route-stop { padding-right: 18px; }
+.vx-route-stop h3 { font-size: 19px; margin-bottom: 8px; }
+.vx-route-stop p { font-size: 14.5px; color: var(--vx-slate); max-width: 34ch; }
+
+/* ---------------------------------------------------------------- coins */
+.vx-coins {
+  padding: 96px 0;
+  background:
+    radial-gradient(620px 320px at 88% 14%, rgba(255, 255, 255, 0.2), transparent 62%),
+    linear-gradient(142deg, #ff7a2f 0%, #f26311 56%, #e8590c 100%);
+}
+.vx-coins-inner {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 64px;
+  align-items: center;
+}
+.vx-receipt {
+  background: #fff;
+  padding: 34px 30px 24px;
+  max-width: 360px;
+  margin-left: auto;
+  box-shadow: 0 26px 60px rgba(3, 8, 20, 0.34);
+  /* torn-receipt edge */
+  -webkit-mask-image: radial-gradient(circle at 7px 100%, transparent 7px, #000 7.5px);
+  mask-image: radial-gradient(circle at 7px 100%, transparent 7px, #000 7.5px);
+  -webkit-mask-size: 14px 100%;
+  mask-size: 14px 100%;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+}
+.vx-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--vx-slate);
+  padding: 7px 0;
+}
+.vx-receipt-free { color: #0f9d58; font-weight: 600; }
+.vx-receipt-coins { color: var(--vx-orange-deep); font-weight: 600; }
+.vx-receipt-rule {
+  border-top: 1px dashed var(--vx-line);
+  margin: 10px 0;
+}
+.vx-receipt-total {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--vx-blue);
+}
+.vx-receipt-note {
+  margin-top: 14px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a7b0c0;
+}
+
+/* --------------------------------------------------- reviews as pull quotes */
+.vx-quotes {
+  position: relative;
+  max-width: 860px;
+  margin: 0 auto;
+  padding-left: 72px;
+  outline: none;
+}
+.vx-quotes:focus-visible { outline: 2px solid var(--vx-orange); outline-offset: 16px; }
+.vx-quote-mark {
+  position: absolute;
+  left: 0;
+  top: -34px;
+  font-size: 128px;
+  line-height: 1;
+  color: var(--vx-orange);
+  opacity: 0.3;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.vx-quote-stage { min-height: 172px; display: flex; align-items: center; }
+.vx-quote { margin: 0; cursor: grab; }
+.vx-quote:active { cursor: grabbing; }
+.vx-quote blockquote {
+  margin: 0 0 22px;
+  font-size: clamp(21px, 2.5vw, 29px);
+  line-height: 1.42;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--vx-ink);
+}
+.vx-quote figcaption { display: flex; align-items: center; gap: 14px; }
+.vx-quote-rating { color: var(--vx-orange); font-size: 14px; letter-spacing: 2px; }
+.vx-quote-rating em { color: var(--vx-line); font-style: normal; }
+.vx-quote-place { font-size: 13.5px; color: var(--vx-slate); }
+.vx-quote-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--vx-line);
+}
+.vx-quote-count {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: #66718a;
+}
+.vx-quote-ticks { display: flex; align-items: center; gap: 6px; margin-right: auto; }
+.vx-quote-tick {
+  width: 22px;
+  height: 2px;
+  border: none;
+  padding: 0;
+  background: var(--vx-line);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.vx-quote-tick.is-active { background: var(--vx-orange); }
+.vx-quote-arrows { display: flex; gap: 6px; }
+.vx-quote-arrows button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--vx-line);
+  background: transparent;
+  color: var(--vx-blue);
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.vx-quote-arrows button:hover { border-color: var(--vx-orange); color: var(--vx-orange-deep); }
+
+/* ------------------------------------------------- blog index, not a wall */
+.vx-index { border-top: 1px solid var(--vx-line); }
+.vx-index-row { border-bottom: 1px solid var(--vx-line); }
+.vx-index-row a {
+  display: grid;
+  grid-template-columns: 140px 1fr auto auto;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 8px 28px 0;
+  text-decoration: none;
+  transition: padding 0.24s ease, background 0.24s ease;
+}
+.vx-index-row a:hover {
+  text-decoration: none;
+  padding-left: 14px;
+  padding-right: 0;
+  background: #fff;
+}
+.vx-index-row time { font-size: 13px; color: #66718a; letter-spacing: 0.04em; }
+.vx-site .vx-index-row h3 {
+  font-size: 21px;
+  margin: 0;
+  max-width: 34ch;
+  transition: color 0.2s ease;
+}
+.vx-index-row a:hover h3 { color: var(--vx-orange-deep); }
+.vx-index-arrow {
+  color: var(--vx-orange);
+  font-size: 17px;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.24s ease;
+}
+.vx-index-row a:hover .vx-index-arrow { opacity: 1; transform: translateX(0); }
+
+/* Card grid kept for the blog listing and related posts */
+.vx-post-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 1px;
+  background: var(--vx-line);
+  border: 1px solid var(--vx-line);
+}
+.vx-post-card { background: #fff; height: 100%; }
+.vx-post-card a {
+  display: block;
+  padding: 30px 26px;
+  text-decoration: none;
+  height: 100%;
+  transition: background 0.2s ease;
+}
+.vx-post-card a:hover { text-decoration: none; background: var(--vx-paper); }
+.vx-post-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--vx-orange-deep);
+  margin-bottom: 14px;
+}
+.vx-site .vx-post-card h2,
+.vx-site .vx-post-card h3 { font-size: 20px; margin-bottom: 10px; }
+.vx-post-card p { font-size: 14.5px; color: var(--vx-slate); margin-bottom: 16px; }
+.vx-post-meta { font-size: 12.5px; color: #66718a; }
+.vx-tag-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 34px; }
+.vx-tag {
+  border: 1px solid var(--vx-line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 17px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--vx-slate);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.vx-tag:hover { border-color: var(--vx-orange); color: var(--vx-orange-deep); }
+.vx-tag.is-active { background: var(--vx-blue); border-color: var(--vx-blue); color: #fff; }
+.vx-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--vx-orange);
+  transform-origin: 0%;
+  z-index: 150;
+}
+.vx-back-link { display: inline-block; font-size: 13px; color: #66718a; margin-bottom: 20px; }
+.vx-article-meta { font-size: 13px; color: #66718a; margin-top: 14px; }
+.vx-article-cta {
+  margin-top: 44px;
+  padding: 30px;
+  background: var(--vx-paper);
+  border: 1px solid var(--vx-line);
+}
+
+/* --------------------------------------------------------------- page hero */
+.vx-page-hero {
+  background: var(--vx-paper);
+  border-bottom: 1px solid var(--vx-line);
+  padding: 84px 0 68px;
+}
+.vx-page-hero-article { padding-bottom: 48px; }
+.vx-page-title {
+  font-size: clamp(32px, 4.2vw, 48px);
+  margin-bottom: 16px;
+  max-width: 20ch;
+}
+.vx-page-sub { font-size: 17.5px; color: var(--vx-slate); max-width: 58ch; }
+
+/* ---------------------------------------------------------------- the FAQ */
+.vx-faq-wrap { max-width: 820px; }
+.vx-faq { border-top: 1px solid var(--vx-line); }
+.vx-faq-item { border-bottom: 1px solid var(--vx-line); padding: 20px 0; }
+.vx-faq-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--vx-blue);
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.vx-faq-item summary::-webkit-details-marker { display: none; }
+.vx-faq-item summary::after {
+  content: '+';
+  color: var(--vx-orange);
+  font-size: 19px;
+  line-height: 1;
+}
+.vx-faq-item[open] summary::after { content: '–'; }
+.vx-faq-item p { margin-top: 12px; font-size: 14.5px; color: var(--vx-slate); max-width: 68ch; }
+
+/* ----------------------------------------------------------------- contact */
+.vx-contact-grid {
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 56px;
+  align-items: start;
+}
+.vx-form { display: flex; flex-direction: column; }
+.vx-contact-form { border: 1px solid var(--vx-line); padding: 34px; background: #fff; }
+.vx-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.vx-field { display: flex; flex-direction: column; }
+.vx-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vx-ink);
+  margin: 16px 0 7px;
+}
+.vx-input {
+  font-family: inherit;
+  font-size: 14.5px;
+  color: var(--vx-ink);
+  background: #fff;
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 12px 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.vx-input:focus {
+  outline: none;
+  border-color: var(--vx-orange);
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
+}
+.vx-textarea { resize: vertical; min-height: 140px; }
+.vx-form .vx-btn { margin-top: 22px; }
+.vx-form-note { margin-top: 14px; font-size: 12px; color: #66718a; }
+.vx-form-error {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #b4231c;
+  background: rgba(180, 35, 28, 0.06);
+  border: 1px solid rgba(180, 35, 28, 0.18);
+  padding: 11px 13px;
+}
+.vx-contact-done { border: 1px solid var(--vx-line); padding: 40px 34px; }
+.vx-contact-side { display: flex; flex-direction: column; gap: 18px; }
+.vx-contact-card { background: var(--vx-paper); border: 1px solid var(--vx-line); padding: 26px; }
+.vx-contact-card-accent {
+  background: rgba(255, 107, 26, 0.055);
+  border-color: rgba(255, 107, 26, 0.26);
+}
+.vx-contact-card p { font-size: 14.5px; margin-bottom: 0; }
+.vx-contact-list { margin: 0; }
+.vx-contact-list > div { padding: 12px 0; border-bottom: 1px solid var(--vx-line); }
+.vx-contact-list > div:last-child { border-bottom: none; padding-bottom: 0; }
+.vx-contact-list dt { margin-bottom: 4px; }
+.vx-contact-list dd { margin: 0; font-size: 15px; color: var(--vx-ink); }
+
+/* ------------------------------------------------------------ closing CTA */
+.vx-cta {
+  padding: 104px 0 0;
+  text-align: center;
+  background:
+    radial-gradient(700px 300px at 50% 0%, rgba(255, 107, 26, 0.13), transparent 66%),
+    linear-gradient(180deg, #fff6ef 0%, #ffffff 100%);
+  border-top: 1px solid var(--vx-line);
+}
+.vx-cta-inner .vx-h2 {
+  margin-left: auto;
+  margin-right: auto;
+  font-size: clamp(32px, 4vw, 48px);
+  max-width: 16ch;
+}
+.vx-cta-inner .vx-body-light { max-width: 54ch; margin: 0 auto 28px; }
+.vx-cta .vx-badges { justify-content: center; }
+
+/* ------------------------------------------------------------ store badges */
+.vx-badges { display: flex; flex-wrap: wrap; gap: 12px; }
+.vx-badges.is-block { flex-direction: column; }
+.vx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 20px 9px 15px;
+  border: 1px solid;
+  border-radius: var(--vx-radius);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.vx-badge small {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.vx-badge strong { display: block; font-size: 15px; font-weight: 600; line-height: 1.2; }
+.vx-badge-dark {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.vx-badge-dark:hover { border-color: var(--vx-orange); background: rgba(255, 107, 26, 0.1); }
+.vx-badge-light { background: #fff; border-color: var(--vx-line); color: var(--vx-ink); }
+.vx-badge-light:hover { border-color: var(--vx-orange); }
+
+/* ------------------------------------------------------------------- modal */
+.vx-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 16, 35, 0.62);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 300;
+}
+.vx-modal {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  padding: 34px 32px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.vx-modal img { border-radius: 8px; }
+.vx-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  color: #66718a;
+  cursor: pointer;
+}
+.vx-modal-close:hover { color: var(--vx-ink); }
+.vx-site .vx-modal-title { font-size: 23px; margin: 16px 0 10px; }
+.vx-modal-body { font-size: 14.5px; color: var(--vx-slate); margin-bottom: 6px; }
+
+/* ------------------------------------------------------------------ loader */
+.vx-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: var(--vx-slate);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ footer */
+.vx-footer {
+  background: #fff;
+  color: var(--vx-slate);
+  padding: 70px 0 30px;
+  border-top: 3px solid var(--vx-orange);
+}
+.vx-footer-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr 1fr 1.25fr;
+  gap: 48px;
+}
+.vx-footer h3 {
+  color: var(--vx-blue);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.vx-footer-col { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.vx-footer a,
+.vx-footer-static { color: var(--vx-slate); font-size: 14.5px; text-decoration: none; }
+.vx-footer a:hover { color: var(--vx-orange-deep); text-decoration: none; }
+.vx-footer-tagline { color: var(--vx-orange-deep); font-weight: 600; margin: 18px 0 8px; font-size: 15px; }
+.vx-footer-text { font-size: 14.5px; max-width: 34ch; }
+.vx-footer-social { display: flex; gap: 18px; margin-top: 20px; }
+.vx-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 54px;
+  padding-top: 22px;
+  border-top: 1px solid var(--vx-line);
+  font-size: 12.5px;
+  color: #66718a;
+}
+
+/* --------------------------------------------------------------- not found */
+.vx-notfound { padding: 120px 0 130px; text-align: center; }
+.vx-notfound .vx-hero-actions { justify-content: center; }
+.vx-notfound .vx-page-title,
+.vx-notfound .vx-page-sub { margin-left: auto; margin-right: auto; }
+.vx-notfound .vx-page-sub { margin-bottom: 28px; }
+
+/* -------------------------------------------------------------- responsive */
+@media (max-width: 1040px) {
+  .vx-hero-inner,
+  .vx-split,
+  .vx-sticky-split,
+  .vx-coins-inner,
+  .vx-contact-grid { grid-template-columns: 1fr; gap: 48px; }
+  .vx-sticky-head { position: static; }
+  .vx-hero-visual { max-width: 580px; }
+  .vx-route { grid-template-columns: 1fr; gap: 28px; }
+  .vx-route::before { display: none; }
+  .vx-receipt { margin: 0; }
+  .vx-footer-grid { grid-template-columns: 1fr 1fr; }
+  .vx-index-row a { grid-template-columns: 1fr auto; row-gap: 8px; }
+  .vx-index-row time { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .vx-site { font-size: 15.5px; }
+  .vx-container { padding: 0 20px; }
+  .vx-nav { display: none; }
+  .vx-burger { display: block; }
+  .vx-header-actions { margin-left: auto; }
+  .vx-header-actions .vx-btn-primary { display: none; }
+  .vx-section, .vx-coins { padding: 68px 0; }
+  .vx-hero { padding-top: 60px; }
+  .vx-hero-inner { padding-bottom: 40px; }
+  /* Phones go fluid: fixed pixel widths were forcing the hero grid wider than
+     the screen, which clipped the copy column. */
+  .vx-cluster { gap: 10px; width: 100%; height: 360px; }
+  .vx-ph { width: min(var(--ph-w), 40vw); }
+  .vx-ph-col-a { display: none; }
+  .vx-quotes { padding-left: 0; }
+  .vx-quote-mark { top: -44px; font-size: 84px; }
+  .vx-list-row { grid-template-columns: auto 1fr; }
+  .vx-list-index { display: none; }
+  .vx-field-row, .vx-footer-grid { grid-template-columns: 1fr; }
+  .vx-contact-form { padding: 24px; }
+  .vx-hero-facts { grid-template-columns: repeat(2, auto); gap: 20px 28px; }
+  .vx-index-row a { grid-template-columns: 1fr auto; }
+}
+
+/* Anyone who has asked for less motion gets a still page. */
+@media (prefers-reduced-motion: reduce) {
+  .vx-site *,
+  .vx-site *::before,
+  .vx-site *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .vx-ticker-track { animation: none; }
+}
+
+/* ------------------------------------------------------------- Valley Coin */
+.vx-fact-coin dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.vx-coin-spin {
+  display: inline-block;
+  transform-style: preserve-3d;
+}
+.vx-receipt-wrap { position: relative; }
+.vx-receipt-coin {
+  position: absolute;
+  top: -34px;
+  right: -28px;
+  z-index: 2;
+  filter: drop-shadow(0 12px 22px rgba(120, 45, 5, 0.42));
+}
+@media (max-width: 1040px) {
+  .vx-receipt-coin { top: -28px; right: -10px; }
+}
+
+/* The quotes section sits between two white bands, so a hairline top keeps it
+   from floating; the band itself stays white to let the quote carry it. */
+.vx-section-quotes {
+  border-top: 1px solid var(--vx-line);
+  border-bottom: 1px solid var(--vx-line);
+}
+.vx-countup { font-variant-numeric: tabular-nums; }
+
+/* The reveal wrapper stretched but the panel inside kept its content height,
+   leaving the column short. Let it fill, and let the stage take the slack so
+   the scooter stays optically centred however long the copy runs. */
+.vx-split-visual { display: flex; }
+.vx-split-visual > .vx-fleet { flex: 1; }
+.vx-fleet-stage { flex: 1; align-items: center; }
+
+/* Grid and flex children default to min-width:auto, so a wide child (the phone
+   cluster) can push a one-column layout past the viewport. */
+.vx-hero-inner > *,
+.vx-split > *,
+.vx-sticky-split > *,
+.vx-coins-inner > *,
+.vx-contact-grid > * {
+  min-width: 0;
+}
+
+/* Touch targets. On a phone the footer links were 23px tall, under the 24px
+   WCAG 2.2 minimum and well under a comfortable thumb. */
+@media (max-width: 760px) {
+  .vx-footer-col a,
+  .vx-footer-social a,
+  .vx-mobile-link {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .vx-footer-col { gap: 2px; }
+  .vx-logo-link { padding: 6px 0; }
+}
+
+@media (max-width: 760px) {
+  /* The desktop clamp floor (38px) ate the first screen on a 360px phone, so
+     the headline is scaled to the viewport and the CTA goes full-width for
+     thumb reach. */
+  .vx-site .vx-hero-title { font-size: clamp(29px, 8.4vw, 40px); max-width: 18ch; }
+  .vx-hero-sub { font-size: 16px; margin-bottom: 22px; }
+  .vx-hero-actions { gap: 4px; margin-bottom: 26px; }
+  .vx-hero-actions .vx-btn { width: 100%; }
+  .vx-status { margin-bottom: 20px; }
+  .vx-h2 { max-width: 20ch; }
+  .vx-page-title { font-size: clamp(27px, 7.6vw, 38px); }
+}
+
+@media (max-width: 1040px) {
+  /* Stacked hero: the gap that reads as breathing room side-by-side becomes a
+     dead drop between the copy and the phones. */
+  .vx-hero-inner { gap: 28px; }
+  .vx-hero-facts { padding-top: 22px; }
+}
+
+
+/* ------------------------------------------------- closing-section rider */
+.vx-cta-road {
+  position: relative;
+  height: 104px;
+  margin-top: 40px;
+  overflow: hidden;
+}
+/* The road the rider travels, picked up by the footer's orange rule below. */
+.vx-cta-scooter {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 128px;
+  height: auto;
+  animation: vxRideAcross 13s linear infinite;
+}
+@keyframes vxRideAcross {
+  from { transform: translateX(-140px); }
+  to { transform: translateX(calc(100vw + 60px)); }
+}
+@media (max-width: 760px) {
+  .vx-cta-road { height: 84px; margin-top: 28px; }
+  .vx-cta-scooter { width: 96px; }
+}
+
+/* ------------------------------------------------------------- text pages */
+.vx-h2-doc {
+  font-size: clamp(21px, 2.2vw, 26px);
+  margin-top: 38px;
+  margin-bottom: 12px;
+  max-width: 28ch;
+}
+.vx-note-strong {
+  border-left-width: 3px;
+  background: rgba(255, 107, 26, 0.05);
+  padding: 14px 16px;
+  font-size: 14.5px;
+}
+.vx-doc-list {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  color: var(--vx-slate);
+}
+.vx-doc-list li { margin-bottom: 9px; }
+.vx-footer-legal {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}

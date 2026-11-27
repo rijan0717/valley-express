@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { LogoFull } from '../components/Logo';
 import ValleyLoader from '../components/ValleyLoader';
 
@@ -17,8 +17,13 @@ const Login = () => {
     localStorage.removeItem('valley_remember_password');
   }, []);
   const [error, setError] = useState('');
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Somebody already signed in has no business on the sign-in page.
+  if (isAuthenticated) {
+    return <Navigate to="/admin" replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,7 +53,7 @@ const Login = () => {
         localStorage.removeItem('valley_remember_me');
         localStorage.removeItem('valley_remember_email');
       }
-      navigate('/');
+      navigate('/admin');
     } else {
       setError(res.message);
     }

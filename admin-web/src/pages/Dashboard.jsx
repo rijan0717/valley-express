@@ -296,7 +296,7 @@ const Dashboard = ({ onReplaySplash }) => {
                     Real-time customer orders flowing from mobile app
                   </p>
                 </div>
-                <Link to="/orders" className="btn btn-primary btn-sm">
+                <Link to="/admin/orders" className="btn btn-primary btn-sm">
                   View Kanban Board
                 </Link>
               </div>
@@ -386,7 +386,7 @@ const Dashboard = ({ onReplaySplash }) => {
                               </span>
                             </td>
                             <td>
-                              <Link to="/orders" className="btn btn-secondary btn-sm">
+                              <Link to="/admin/orders" className="btn btn-secondary btn-sm">
                                 Manage
                               </Link>
                             </td>

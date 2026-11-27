@@ -88,22 +88,30 @@ const IssuesIcon = () => (
   </svg>
 );
 
+const ContactIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-10 6L2 7" />
+  </svg>
+);
+
 const Sidebar = ({ isOpen = false, onNavigate }) => {
   const { logout, user } = useAuth();
   const { total: unreadChat } = useChatUnread();
 
   const navItems = [
-    { to: '/', label: 'Overview', icon: <DashboardIcon /> },
-    { to: '/orders', label: 'Live Orders', icon: <OrdersIcon /> },
-    { to: '/products', label: 'Products & Stock', icon: <ProductsIcon /> },
-    { to: '/offers', label: 'Offers & Deals', icon: <OffersIcon /> },
-    { to: '/riders', label: 'Riders Fleet', icon: <RidersIcon /> },
-    { to: '/users', label: 'Registered Users', icon: <UsersIcon /> },
-    { to: '/coins', label: 'Valley Coins', icon: <CoinsIcon /> },
-    { to: '/chat', label: 'Customer Support', icon: <ChatIcon />, badge: unreadChat },
-    { to: '/issues', label: 'Reported Issues', icon: <IssuesIcon /> },
-    { to: '/settings', label: 'Store Settings', icon: <SettingsIcon /> },
-    { to: '/mobile-preview', label: 'Mobile Preview', icon: <MobileIcon /> },
+    { to: '/admin', label: 'Overview', icon: <DashboardIcon /> },
+    { to: '/admin/orders', label: 'Live Orders', icon: <OrdersIcon /> },
+    { to: '/admin/products', label: 'Products & Stock', icon: <ProductsIcon /> },
+    { to: '/admin/offers', label: 'Offers & Deals', icon: <OffersIcon /> },
+    { to: '/admin/riders', label: 'Riders Fleet', icon: <RidersIcon /> },
+    { to: '/admin/users', label: 'Registered Users', icon: <UsersIcon /> },
+    { to: '/admin/coins', label: 'Valley Coins', icon: <CoinsIcon /> },
+    { to: '/admin/chat', label: 'Customer Support', icon: <ChatIcon />, badge: unreadChat },
+    { to: '/admin/issues', label: 'Reported Issues', icon: <IssuesIcon /> },
+    { to: '/admin/enquiries', label: 'Contact Us', icon: <ContactIcon /> },
+    { to: '/admin/settings', label: 'Store Settings', icon: <SettingsIcon /> },
+    { to: '/admin/mobile-preview', label: 'Mobile Preview', icon: <MobileIcon /> },
   ];
 
   return (
@@ -127,7 +135,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
           <li key={item.to}>
             <NavLink
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/admin'}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
               onClick={onNavigate}
             >
