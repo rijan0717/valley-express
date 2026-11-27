@@ -1,0 +1,9 @@
+# Valley Express — https://valleyexpress.com.np
+User-agent: *
+Allow: /
+
+# Staff areas: never indexed.
+Disallow: /admin
+Disallow: /login
+
+Sitemap: https://valleyexpress.com.np/sitemap.xml

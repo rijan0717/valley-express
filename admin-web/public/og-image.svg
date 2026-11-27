@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Social share card, 1200x630. Drawn rather than photographed so it stays
+     sharp and weighs little. scripts/build-images.mjs renders it to the PNG
+     that Facebook, WhatsApp and X actually display — they ignore SVG. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="warm" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#FFF4EC"/>
+      <stop offset="60%" stop-color="#FFFAF6"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#warm)"/>
+  <rect y="624" width="1200" height="6" fill="#FF6B1A"/>
+
+  <!-- the route the rider takes -->
+  <path d="M-20 596 C 220 566, 360 584, 620 566 S 980 548, 1220 578"
+        fill="none" stroke="#FF6B1A" stroke-opacity="0.35" stroke-width="3"
+        stroke-dasharray="7 11" stroke-linecap="round"/>
+
+  <!-- mark -->
+  <g transform="translate(96 92)">
+    <rect width="104" height="104" rx="26" fill="#FF6B1A"/>
+    <path d="M26 36 L52 84 L78 36" fill="none" stroke="#FFFFFF" stroke-width="12"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="222" y="152" font-family="Poppins, Segoe UI, sans-serif" font-size="21" font-weight="500"
+        fill="#E8590C" letter-spacing="7">VALLEY EXPRESS</text>
+  <text x="222" y="186" font-family="Poppins, Segoe UI, sans-serif" font-size="19" font-weight="400"
+        fill="#3D4A6B">Fast to order. Fast to your door.</text>
+
+  <text x="96" y="340" font-family="Poppins, Segoe UI, sans-serif" font-size="66" font-weight="700"
+        fill="#003893" letter-spacing="-2">Snacks, drinks and ice.</text>
+  <text x="96" y="420" font-family="Poppins, Segoe UI, sans-serif" font-size="66" font-weight="700"
+        fill="#FF6B1A" letter-spacing="-2">At your gate, not on a list.</text>
+  <text x="96" y="492" font-family="Poppins, Segoe UI, sans-serif" font-size="26" font-weight="400"
+        fill="#3D4A6B">Quick delivery across Kathmandu · Lalitpur · Bhaktapur</text>
+</svg>
