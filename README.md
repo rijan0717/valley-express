@@ -1,9 +1,17 @@
 # Valley Express
-### Kathmandu Valley Fast Delivery Platform: Snacks, Soft Drinks, Ice, Mixers and Essentials
 
-Valley Express is an on-demand quick-delivery platform built for Kathmandu Valley (Kathmandu, Lalitpur, and Bhaktapur). Customers order snacks, soft drinks, ice, mixers, and essentials from their phone. Riders deliver on bikes and scooters. Admin manages operations from a desktop web dashboard. An alcohol category exists in the system but stays disabled until the store liquor licence is issued.
+On-demand quick-delivery platform built for Kathmandu Valley (Kathmandu, Lalitpur and Bhaktapur).
+Customers order snacks, soft drinks, ice, mixers and essentials from their phone, riders deliver
+on bikes and scooters, and admins manage operations from a desktop web dashboard.
 
----
+## Features
+- Customer mobile web app: browse, cart, checkout, order history
+- Live order tracking on a map
+- In-app chat between customer and rider
+- Light/dark mode and accent theme switching
+- Rider app: accept orders, navigation, delivery status updates
+- Admin dashboard: orders, riders, catalogue and zones
+- Alcohol category present but disabled until the store liquor licence is issued
 
 ## Monorepo Structure
 
