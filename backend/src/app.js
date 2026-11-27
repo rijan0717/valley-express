@@ -21,6 +21,7 @@ const issueRoutes = require('./routes/issues');
 const notificationRoutes = require('./routes/notifications');
 const coinRoutes = require('./routes/coins');
 const wishlistRoutes = require('./routes/wishlist');
+const leadRoutes = require('./routes/leads');
 
 const app = express();
 
@@ -85,6 +86,20 @@ app.use('/api/auth/admin-login', credentialLimiter);
 app.use('/api/auth/verify-otp', credentialLimiter);
 app.use('/api/auth/reset-password', credentialLimiter);
 
+// The public website writes here, so it is throttled harder than a signed-in
+// endpoint would be: the forms are open to anyone who loads the homepage.
+const publicFormLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  message: {
+    success: false,
+    message: 'Too many submissions from this network. Please try again shortly.',
+  },
+});
+// Only the public POSTs are throttled; the admin inbox below reads freely.
+app.use('/api/leads/notify', publicFormLimiter);
+app.use('/api/leads/contact', publicFormLimiter);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -114,6 +129,7 @@ app.use('/api/admin/issues', issueRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/coins', coinRoutes);
 app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/leads', leadRoutes);
 
 // 404 handler
 app.use((req, res) => {
