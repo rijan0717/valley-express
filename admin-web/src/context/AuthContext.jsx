@@ -38,6 +38,9 @@ export const AuthProvider = ({ children }) => {
         setToken(res.data.token);
         setUser(res.data.user);
         localStorage.setItem('valley_token', res.data.token);
+        if (res.data.refreshToken) {
+          localStorage.setItem('valley_refresh_token', res.data.refreshToken);
+        }
         localStorage.setItem('valley_user', JSON.stringify(res.data.user));
         return { success: true };
       }
@@ -53,9 +56,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Revoke the refresh token server-side so it cannot be reused, then clear
+    // local state. Fire-and-forget: the UI signs out regardless of the call.
+    const refreshToken = localStorage.getItem('valley_refresh_token');
+    if (refreshToken) {
+      api.post('/auth/logout', { refreshToken }).catch(() => {});
+    }
     setUser(null);
     setToken(null);
     localStorage.removeItem('valley_token');
+    localStorage.removeItem('valley_refresh_token');
     localStorage.removeItem('valley_user');
   };
 

@@ -6,6 +6,7 @@ const User = require('../models/User');
 const coinService = require('../services/coinService');
 const { getIO } = require('../sockets');
 const { createNotification } = require('./notificationController');
+const { canViewOrder, isAdmin, isOrderOwner, isAssignedRider } = require('../utils/orderAccess');
 
 // Helper to generate readable order numbers: VX-98231
 const generateOrderNo = () => {
@@ -263,6 +264,14 @@ const getOrderById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
+    // An order holds the customer's address and phone, so it is readable only
+    // by the customer who placed it, the rider assigned to it, or an admin.
+    // Without this check any signed-in account could enumerate every order by
+    // id and harvest delivery details.
+    if (!canViewOrder(order, req.user)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this order' });
+    }
+
     res.json({ success: true, order });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -277,6 +286,14 @@ const updateOrderStatus = async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    // Admin may drive any order. A rider may only advance an order that is
+    // actually assigned to them — otherwise any rider account could mark a
+    // stranger's order delivered, which also settles cash-on-delivery as paid
+    // and awards coins.
+    if (!isAdmin(req.user) && !isAssignedRider(order, req.user)) {
+      return res.status(403).json({ success: false, message: 'You are not assigned to this order' });
     }
 
     order.status = status;
@@ -418,6 +435,13 @@ const cancelOrder = async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    // Only the customer who placed the order or an admin may cancel it. The
+    // route is otherwise open to any signed-in user, which let an attacker
+    // cancel strangers' orders by id.
+    if (!isAdmin(req.user) && !isOrderOwner(order, req.user)) {
+      return res.status(403).json({ success: false, message: 'You cannot cancel this order' });
     }
 
     if (['delivered', 'cancelled'].includes(order.status)) {

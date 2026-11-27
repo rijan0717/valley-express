@@ -101,6 +101,12 @@ class AuthProvider with ChangeNotifier {
     }
     try {
       await _storage.write(key: AppConstants.tokenKey, value: _token);
+      if (data['refreshToken'] != null) {
+        await _storage.write(
+          key: AppConstants.refreshTokenKey,
+          value: data['refreshToken'].toString(),
+        );
+      }
       await _storage.write(key: AppConstants.userKey, value: jsonEncode(_user!.toJson()));
     } catch (_) {
       // Secure storage can be unavailable on some devices; the session still
@@ -349,6 +355,12 @@ class AuthProvider with ChangeNotifier {
         _user = UserModel.fromJson(res.data['user']);
         try {
           await _storage.write(key: AppConstants.tokenKey, value: _token);
+          if (res.data['refreshToken'] != null) {
+            await _storage.write(
+              key: AppConstants.refreshTokenKey,
+              value: res.data['refreshToken'].toString(),
+            );
+          }
           await _storage.write(key: AppConstants.userKey, value: jsonEncode(_user!.toJson()));
         } catch (_) {}
         _isLoading = false;
@@ -428,6 +440,15 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     _user = null;
     _token = null;
+    // Revoke the refresh token on the server so it cannot be reused, before it
+    // is wiped from device storage below. Fire-and-forget — logout proceeds
+    // locally regardless of whether the call succeeds.
+    try {
+      final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _api.dio.post('/auth/logout', data: {'refreshToken': refreshToken});
+      }
+    } catch (_) {}
     // deleteAll would take the remembered credentials with the session, so
     // they are read back and rewritten when "remember me" is still set.
     String? remembered;

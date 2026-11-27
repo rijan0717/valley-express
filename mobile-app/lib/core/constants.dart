@@ -19,6 +19,7 @@ class AppConstants {
 
   // Local storage keys
   static const String tokenKey = 'valley_jwt_token';
+  static const String refreshTokenKey = 'valley_refresh_token';
   static const String userKey = 'valley_user_profile';
   static const String ageConfirmedKey = 'valley_age_confirmed';
   // Survive logout: ticking "remember me" is a preference about the next

@@ -1,7 +1,12 @@
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const bcrypt = require('bcryptjs');
-const { generateToken } = require('../utils/token');
+const {
+  issueSession,
+  rotateSession,
+  revokeSession,
+  revokeAllSessions,
+} = require('../utils/token');
 const { sendSMS } = require('../services/smsService');
 const { createNotification } = require('./notificationController');
 
@@ -66,7 +71,7 @@ const adminLogin = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    const token = generateToken(user._id, user.role);
+    const { token, refreshToken } = await issueSession(user, req);
 
     // If customer logs in for the first time, ensure they receive the Welcome notification
     Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
@@ -84,6 +89,7 @@ const adminLogin = async (req, res) => {
       success: true,
       message: 'Admin authentication successful',
       token,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,
@@ -204,7 +210,7 @@ const register = async (req, res) => {
       });
     }
 
-    const token = generateToken(user._id, user.role);
+    const { token, refreshToken } = await issueSession(user, req);
 
     // Automatically send welcome notification to newly registered user
     createNotification(user._id, {
@@ -218,6 +224,7 @@ const register = async (req, res) => {
       success: true,
       message: 'Account created successfully. Welcome to Valley Express.',
       token,
+      refreshToken,
       user: publicUser(user),
     });
   } catch (error) {
@@ -276,7 +283,7 @@ const customerLogin = async (req, res) => {
       });
     }
 
-    const token = generateToken(user._id, user.role);
+    const { token, refreshToken } = await issueSession(user, req);
 
     // If customer logs in for the first time, ensure they receive the Welcome notification
     Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
@@ -294,6 +301,7 @@ const customerLogin = async (req, res) => {
       success: true,
       message: 'Signed in successfully',
       token,
+      refreshToken,
       user: publicUser(user),
     });
   } catch (error) {
@@ -385,7 +393,11 @@ const resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(password, 10);
     await user.save();
 
-    const token = generateToken(user._id, user.role);
+    // A password reset is an account-recovery event: invalidate every existing
+    // session so a previously stolen token cannot outlive the reset.
+    await revokeAllSessions(user._id);
+
+    const { token, refreshToken } = await issueSession(user, req);
 
     // If customer logs in for the first time, ensure they receive the Welcome notification
     Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
@@ -403,6 +415,7 @@ const resetPassword = async (req, res) => {
       success: true,
       message: 'Password updated. You are now signed in.',
       token,
+      refreshToken,
       user: publicUser(user),
     });
   } catch (error) {
@@ -503,7 +516,7 @@ const sendOtp = async (req, res) => {
 // POST /api/auth/verify-otp
 const verifyOtp = async (req, res) => {
   try {
-    const { phone, otp, role = 'customer', name } = req.body;
+    const { phone, otp, name } = req.body;
 
     if (!phone || !otp) {
       return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
@@ -529,15 +542,19 @@ const verifyOtp = async (req, res) => {
     let user = await User.findOne({ phone });
 
     if (!user) {
+      // Self-service OTP sign-up can only ever create a customer. The role was
+      // previously taken from the request body, so a caller could register
+      // themselves as 'admin' or 'rider' and gain privileged access. Rider and
+      // admin accounts are provisioned by an administrator, never self-claimed.
       user = await User.create({
         phone,
-        name: name || (role === 'rider' ? 'Valley Rider' : (role === 'admin' ? 'Store Admin' : 'Valued Customer')),
-        role: role || 'customer',
+        name: name || 'Valued Customer',
+        role: 'customer',
         ageConfirmed: false,
       });
     }
 
-    const token = generateToken(user._id, user.role);
+    const { token, refreshToken } = await issueSession(user, req);
 
     // If customer logs in for the first time, ensure they receive the Welcome notification
     Notification.findOne({ user: user._id, title: /Welcome to Valley Express/i }).then((exists) => {
@@ -555,6 +572,7 @@ const verifyOtp = async (req, res) => {
       success: true,
       message: 'Authentication successful',
       token,
+      refreshToken,
       user: {
         id: user._id,
         phone: user.phone,
@@ -565,6 +583,50 @@ const verifyOtp = async (req, res) => {
         addresses: user.addresses,
       },
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/auth/refresh
+// Exchange a refresh token for a new short-lived access token. The refresh
+// token is rotated: the one presented is consumed and a new one returned, so a
+// leaked refresh token is single-use and its reuse can be detected.
+const refresh = async (req, res) => {
+  try {
+    const { refreshToken: presented } = req.body;
+    if (!presented) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+
+    const rotated = await rotateSession(presented, req);
+    if (!rotated) {
+      return res.status(401).json({ success: false, message: 'Session expired. Please sign in again.' });
+    }
+
+    res.json({
+      success: true,
+      token: rotated.token,
+      refreshToken: rotated.refreshToken,
+      user: publicUser(rotated.user),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/auth/logout
+// Revoke the presented refresh token so it can never be used again. The access
+// token is short-lived and expires on its own.
+const logout = async (req, res) => {
+  try {
+    const { refreshToken: presented, allDevices } = req.body;
+    if (allDevices && req.user) {
+      await revokeAllSessions(req.user._id);
+    } else {
+      await revokeSession(presented);
+    }
+    res.json({ success: true, message: 'Signed out' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -687,12 +749,13 @@ const riderLogin = async (req, res) => {
     rider.isOnline = true;
     await rider.save();
 
-    const token = generateToken(rider._id, rider.role);
+    const { token, refreshToken } = await issueSession(rider, req);
 
     res.json({
       success: true,
       message: 'Rider authenticated successfully without registration',
       token,
+      refreshToken,
       user: {
         _id: rider._id,
         name: rider.name,
@@ -720,6 +783,8 @@ module.exports = {
   changePassword,
   sendOtp,
   verifyOtp,
+  refresh,
+  logout,
   getMe,
   updateProfile,
   toggleRiderStatus,
