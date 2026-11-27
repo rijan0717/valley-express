@@ -27,6 +27,15 @@ class ApiClient {
   late Dio dio;
   final FlutterSecureStorage storage = const FlutterSecureStorage();
 
+  /// The token for the current run, held in memory.
+  ///
+  /// Declining "remember me" deliberately keeps the session out of secure
+  /// storage, but the request interceptor read the token from storage alone,
+  /// so every authenticated call went out unsigned and came back 401 for the
+  /// rest of that run. Holding it here keeps the session working without
+  /// writing anything that would survive a restart.
+  static String? sessionToken;
+
   ApiClient() {
     dio = Dio(
       BaseOptions(
@@ -40,7 +49,8 @@ class ApiClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await storage.read(key: AppConstants.tokenKey);
+          final token =
+              sessionToken ?? await storage.read(key: AppConstants.tokenKey);
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }

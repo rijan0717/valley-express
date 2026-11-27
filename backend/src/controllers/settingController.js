@@ -85,6 +85,16 @@ const createRider = async (req, res) => {
     }
 
     const cleanPhone = phone.trim();
+
+    // Without this the field took whatever was typed, so an email pasted into
+    // the phone box was stored as the rider's phone, which is also the id
+    // they sign in with.
+    if (!/^9[78]\d{8}$/.test(cleanPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a valid 10-digit Nepali mobile number for the rider',
+      });
+    }
     const existing = await User.findOne({ phone: cleanPhone });
     if (existing) {
       return res.status(400).json({ success: false, message: 'A user or rider with this phone already exists' });

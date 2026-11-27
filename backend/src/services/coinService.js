@@ -73,7 +73,13 @@ const awardForDeliveredOrder = async (Order, orderId) => {
   if (coins <= 0) return null;
 
   const claimed = await Order.findOneAndUpdate(
-    { _id: orderId, coinsEarned: 0 },
+    // Orders written before this field existed carry no coinsEarned at all,
+    // and Mongo does not match a missing field against 0, so the claim never
+    // fired for them and the coins were silently never credited.
+    {
+      _id: orderId,
+      $or: [{ coinsEarned: 0 }, { coinsEarned: { $exists: false } }],
+    },
     { $set: { coinsEarned: coins } },
     { new: true }
   );
@@ -93,7 +99,11 @@ const awardForDeliveredOrder = async (Order, orderId) => {
 /// below, so a customer who already spent them is not pushed negative.
 const reverseForOrder = async (Order, orderId) => {
   const claimed = await Order.findOneAndUpdate(
-    { _id: orderId, coinsEarned: { $gt: 0 }, coinsReversed: false },
+    {
+      _id: orderId,
+      coinsEarned: { $gt: 0 },
+      $or: [{ coinsReversed: false }, { coinsReversed: { $exists: false } }],
+    },
     { $set: { coinsReversed: true } },
     { new: true }
   );
@@ -123,4 +133,62 @@ const reverseForOrder = async (Order, orderId) => {
   });
 };
 
-module.exports = { credit, debit, awardForDeliveredOrder, reverseForOrder };
+/// Gives back coins that were spent but whose order never happened.
+///
+/// Not the same as credit: that counts towards lifetime earned, which would
+/// overstate what the customer has been given. This puts the balance back and
+/// winds the spent total down by the same amount.
+const refundSpend = async ({ userId, coins, order, note }) => {
+  const amount = Math.floor(Number(coins) || 0);
+  if (amount <= 0) return null;
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { valleyCoins: amount, coinsSpent: -amount } },
+    { new: true, select: 'valleyCoins' }
+  );
+  if (!user) return null;
+
+  return CoinTransaction.create({
+    user: userId,
+    order: order ? order._id : null,
+    orderNo: order ? order.orderNo : '',
+    type: 'adjusted',
+    coins: amount,
+    balanceAfter: user.valleyCoins,
+    note: note || 'Refunded coins',
+  });
+};
+
+/// Gives back the coins spent on an order that was cancelled or refunded.
+///
+/// Claimed in one update like the other guards, so a repeated cancellation
+/// cannot pay the coins back twice.
+const refundOrderSpend = async (Order, orderId) => {
+  const claimed = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      coinsRedeemed: { $gt: 0 },
+      $or: [{ coinsRefunded: false }, { coinsRefunded: { $exists: false } }],
+    },
+    { $set: { coinsRefunded: true } },
+    { new: true }
+  );
+  if (!claimed) return null;
+
+  return refundSpend({
+    userId: claimed.customer,
+    coins: claimed.coinsRedeemed,
+    order: claimed,
+    note: `Refunded coins from cancelled order ${claimed.orderNo}`,
+  });
+};
+
+module.exports = {
+  credit,
+  debit,
+  refundSpend,
+  refundOrderSpend,
+  awardForDeliveredOrder,
+  reverseForOrder,
+};

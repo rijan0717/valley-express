@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '../context/SocketContext';
 import api from '../api/client';
+import { useLayout } from '../context/LayoutContext';
 
 const Navbar = ({ title, onReplaySplash }) => {
+  const { toggleSidebar } = useLayout();
   const { isConnected } = useSocket();
   const [settings, setSettings] = useState(null);
 
@@ -18,7 +20,19 @@ const Navbar = ({ title, onReplaySplash }) => {
 
   return (
     <header className="top-navbar">
-      <div className="navbar-left">
+      <div className="navbar-left" style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+        {toggleSidebar && (
+          <button
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-label="Toggle navigation"
+            title="Menu"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
+        )}
         <h2 className="navbar-title">{title || 'Control Center'}</h2>
       </div>
 

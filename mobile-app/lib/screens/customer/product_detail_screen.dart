@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../providers/cart_provider.dart';
+import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../widgets/valley_product_image.dart';
+import '../../widgets/valley_snackbar.dart';
 import 'cart_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -18,7 +20,57 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   int _selectedPackIndex = 0;
+  final ApiClient _api = ApiClient();
   bool _isFavorite = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedState();
+  }
+
+  /// The heart used to be local state alone, so a saved drink was gone on the
+  /// next rebuild and nothing reached the account. It reflects the stored list
+  /// now.
+  Future<void> _loadSavedState() async {
+    try {
+      final res = await _api.dio.get('/wishlist');
+      if (!mounted || res.data['success'] != true) return;
+      final saved = (res.data['products'] as List?) ?? [];
+      setState(() {
+        _isFavorite = saved.any((p) => p['_id'] == widget.product.id);
+      });
+    } catch (_) {
+      // Signed out or offline: leave the heart empty.
+    }
+  }
+
+  Future<void> _toggleSaved(ProductModel p) async {
+    final wasSaved = _isFavorite;
+    // Flip first so the tap feels immediate, and undo if the server refuses.
+    setState(() => _isFavorite = !wasSaved);
+
+    try {
+      if (wasSaved) {
+        await _api.dio.delete('/wishlist/${p.id}');
+      } else {
+        await _api.dio.post('/wishlist', data: {'productId': p.id});
+      }
+      if (!mounted) return;
+      ValleySnack.show(
+        context,
+        wasSaved ? '${p.name} removed from your list' : '${p.name} saved to your list',
+        icon: wasSaved ? Icons.favorite_border_rounded : Icons.favorite_rounded,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFavorite = wasSaved);
+      ValleySnack.error(
+        context,
+        friendlyApiError(e, 'Could not update your saved drinks.'),
+      );
+    }
+  }
 
   final List<Map<String, dynamic>> _packSizes = [
     {
@@ -94,19 +146,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          setState(() => _isFavorite = !_isFavorite);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                _isFavorite ? '${p.name} added to favorites' : 'Removed from favorites',
-                              ),
-                              duration: const Duration(seconds: 1),
-                              backgroundColor: AppTheme.navyBrand,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
+                        onTap: () => _toggleSaved(p),
                         child: Container(
                           width: 40,
                           height: 40,

@@ -69,3 +69,6 @@ Thumbs.db
 # committed copy ended up corrupt. Recreate with: npm run seed
 backend/data/
 data/
+
+# Playwright MCP test artefacts
+.playwright-mcp/

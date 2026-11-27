@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
+import '../../widgets/avatar_upload_sheet.dart';
 import '../customer/chat_screen.dart';
 
 class RiderOrderDetailsScreen extends StatefulWidget {
@@ -44,6 +45,13 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
 
   String get _customerName =>
       _currentOrder['customer']?['name'] ?? _currentOrder['customerName'] ?? 'Customer';
+  Widget _customerInitial() => Text(
+        _customerName.isNotEmpty ? _customerName[0].toUpperCase() : 'C',
+        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+      );
+
+  String get _customerAvatar =>
+      (_currentOrder['customer']?['avatarUrl'] ?? '').toString();
   String get _customerPhone =>
       _currentOrder['deliveryAddress']?['contactPhone'] ??
       _currentOrder['customer']?['phone'] ??
@@ -366,7 +374,14 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
         ),
       ),
       bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        // The inner SafeArea does not clear the gesture bar once this sits
+        // in a bottomSheet, so the action button ended up under it.
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          16 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkSurfaceCard : Colors.white,
           border: Border(
@@ -626,12 +641,14 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
                   color: Color(0xFF003893),
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: Text(
-                    _customerName.isNotEmpty ? _customerName[0].toUpperCase() : 'C',
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: _customerAvatar.isNotEmpty
+                    ? AvatarImage(
+                        url: _customerAvatar,
+                        size: 44,
+                        fallback: Center(child: _customerInitial()),
+                      )
+                    : Center(child: _customerInitial()),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -727,14 +744,19 @@ class _RiderOrderDetailsScreenState extends State<RiderOrderDetailsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Pickup & Navigation Route',
-                style: AppTheme.displayFont(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppTheme.navyBrand,
+              Expanded(
+                child: Text(
+                  'Pickup & Navigation Route',
+                  style: AppTheme.displayFont(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTheme.navyBrand,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(

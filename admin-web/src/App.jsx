@@ -7,6 +7,7 @@ import Products from './pages/Products';
 import Offers from './pages/Offers';
 import Riders from './pages/Riders';
 import Users from './pages/Users';
+import Coins from './pages/Coins';
 import Chat from './pages/Chat';
 import Issues from './pages/Issues';
 import Settings from './pages/Settings';
@@ -15,9 +16,11 @@ import Login from './pages/Login';
 import ProtectedRoute from './routes/ProtectedRoute';
 import SplashScreenAnimation from './components/SplashScreenAnimation';
 import { useAuth } from './context/AuthContext';
+import { LayoutProvider, useLayout } from './context/LayoutContext';
 
-function App() {
+function AppShell() {
   const { isAuthenticated } = useAuth();
+  const { sidebarOpen, closeSidebar } = useLayout();
   const [showSplashOverlay, setShowSplashOverlay] = useState(false);
 
   return (
@@ -28,7 +31,16 @@ function App() {
         onFinish={() => setShowSplashOverlay(false)}
       />
 
-      {isAuthenticated && <Sidebar />}
+      {isAuthenticated && (
+        <>
+          <Sidebar isOpen={sidebarOpen} onNavigate={closeSidebar} />
+          {/* Tapping away closes the drawer, as a drawer should. */}
+          <div
+            className={'sidebar-backdrop' + (sidebarOpen ? ' is-open' : '')}
+            onClick={closeSidebar}
+          />
+        </>
+      )}
       <main className="main-content">
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -81,6 +93,14 @@ function App() {
             }
           />
           <Route
+            path="/coins"
+            element={
+              <ProtectedRoute>
+                <Coins onReplaySplash={() => setShowSplashOverlay(true)} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/chat"
             element={
               <ProtectedRoute>
@@ -116,6 +136,16 @@ function App() {
         </Routes>
       </main>
     </div>
+  );
+}
+
+// The provider has to sit outside the shell, since the shell is what reads
+// the sidebar state it holds.
+function App() {
+  return (
+    <LayoutProvider>
+      <AppShell />
+    </LayoutProvider>
   );
 }
 

@@ -36,6 +36,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> init() async {
     _token = await _storage.read(key: AppConstants.tokenKey);
+    ApiClient.sessionToken = _token;
     final userJson = await _storage.read(key: AppConstants.userKey);
     if (userJson != null) {
       try {
@@ -92,6 +93,9 @@ class AuthProvider with ChangeNotifier {
     bool remember = true,
   }) async {
     _token = data['token'];
+    // Held for this run even when the session is not persisted, so requests
+    // stay signed after declining "remember me".
+    ApiClient.sessionToken = _token;
     _user = UserModel.fromJson(data['user']);
     if (!remember) {
       try {
@@ -449,6 +453,7 @@ class AuthProvider with ChangeNotifier {
         await _api.dio.post('/auth/logout', data: {'refreshToken': refreshToken});
       }
     } catch (_) {}
+    ApiClient.sessionToken = null;
     // deleteAll would take the remembered credentials with the session, so
     // they are read back and rewritten when "remember me" is still set.
     String? remembered;

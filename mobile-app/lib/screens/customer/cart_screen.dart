@@ -30,6 +30,43 @@ class _CartScreenState extends State<CartScreen> {
   String _couponStatus = '';
   String _paymentMethod = 'cash_on_delivery';
 
+  // Valley Coins. The balance comes from the server and only a count is ever
+  // sent back; the rupee figure shown here previews what the server will work
+  // out for itself.
+  int _coinBalance = 0;
+  int _coinValueRupees = 10;
+  double _coinWorth = 0.1;
+  bool _redeemCoins = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCoinBalance();
+  }
+
+  Future<void> _fetchCoinBalance() async {
+    try {
+      final res = await _api.dio.get('/coins/me');
+      if (!mounted || res.data['success'] != true) return;
+      setState(() {
+        _coinBalance = (res.data['balance'] as num?)?.toInt() ?? 0;
+        _coinValueRupees = (res.data['rupeesPerCoin'] as num?)?.toInt() ?? 10;
+        _coinWorth = (res.data['coinValue'] as num?)?.toDouble() ?? 0.1;
+      });
+    } catch (_) {
+      // Leave the balance at zero rather than blocking checkout.
+    }
+  }
+
+  /// Coins that can actually go against this bill: never more than the
+  /// balance, and never more than the amount left to pay.
+  int _redeemableFor(num payable) {
+    if (!_redeemCoins) return 0;
+    final affordable = (payable / _coinWorth).floor();
+    final usable = _coinBalance < affordable ? _coinBalance : affordable;
+    return usable < 0 ? 0 : usable;
+  }
+
   @override
   void dispose() {
     _addressController.dispose();
@@ -95,7 +132,10 @@ class _CartScreenState extends State<CartScreen> {
   void _promptLocationConfirmModal() {
     final cart = Provider.of<CartProvider>(context, listen: false);
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final grandTotal = (cart.subtotal + cart.deliveryFee - _discount).clamp(0, 9999999);
+    final payable = (cart.subtotal + cart.deliveryFee - _discount).clamp(0, 9999999);
+    final coinsUsed = _redeemableFor(payable);
+    final coinDiscount = (coinsUsed * _coinWorth).round();
+    final grandTotal = (payable - coinDiscount).clamp(0, 9999999);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (!auth.isAuthenticated) {
@@ -304,6 +344,9 @@ class _CartScreenState extends State<CartScreen> {
       offerCode: _discount > 0 ? _couponController.text.trim() : null,
       paymentMethod: _paymentMethod,
       ageConfirmed: isAgeVerified,
+      coinsToRedeem: _redeemableFor(
+        (cart.subtotal + cart.deliveryFee - _discount).clamp(0, 9999999),
+      ),
     );
 
     setState(() => _submitting = false);
@@ -327,7 +370,10 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final grandTotal = (cart.subtotal + cart.deliveryFee - _discount).clamp(0, 9999999);
+    final payable = (cart.subtotal + cart.deliveryFee - _discount).clamp(0, 9999999);
+    final coinsUsed = _redeemableFor(payable);
+    final coinDiscount = (coinsUsed * _coinWorth).round();
+    final grandTotal = (payable - coinDiscount).clamp(0, 9999999);
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBgApp : AppTheme.lightBgApp,
@@ -800,6 +846,19 @@ class _CartScreenState extends State<CartScreen> {
                           const SizedBox(height: 8),
                           _buildBillRow('Promo Discount', '- Rs. $_discount', isGreen: true, isDark: isDark),
                         ],
+                        if (coinsUsed > 0) ...[
+                          const SizedBox(height: 8),
+                          _buildBillRow(
+                            'Valley Coins ($coinsUsed)',
+                            '- Rs. $coinDiscount',
+                            isGreen: true,
+                            isDark: isDark,
+                          ),
+                        ],
+                        if (_coinBalance > 0) ...[
+                          const SizedBox(height: 6),
+                          _buildCoinRedeemToggle(payable, isDark),
+                        ],
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Divider(
@@ -923,6 +982,76 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Lets the customer put their coins against this bill.
+  ///
+  /// Only a count leaves the device; the rupee figure here is a preview and
+  /// the server re-derives it, so nothing the app sends can set its own price.
+  Widget _buildCoinRedeemToggle(num payable, bool isDark) {
+    final usable = _redeemCoins
+        ? _redeemableFor(payable)
+        : (_coinBalance < (payable / _coinWorth).floor()
+            ? _coinBalance
+            : (payable / _coinWorth).floor());
+    final worth = (usable * _coinWorth).round();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkBgDevice : AppTheme.lightBgDevice,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _redeemCoins
+              ? AppTheme.primaryOrange.withValues(alpha: 0.4)
+              : (isDark ? AppTheme.darkBorderCard : AppTheme.lightBorderCard),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.monetization_on_rounded,
+              size: 17, color: AppTheme.primaryOrange),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Use Valley Coins',
+                  style: AppTheme.displayFont(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppTheme.darkTextPrimary
+                        : AppTheme.lightTextPrimary,
+                  ),
+                ),
+                Text(
+                  usable > 0
+                      ? '$usable of $_coinBalance coins • saves Rs. $worth'
+                      : '$_coinBalance coins • Rs. $_coinValueRupees spent earns 1',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.bodyFont(
+                    fontSize: 10.5,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: _redeemCoins,
+            activeThumbColor: AppTheme.primaryOrange,
+            onChanged: usable <= 0 && !_redeemCoins
+                ? null
+                : (val) => setState(() => _redeemCoins = val),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/socket_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/avatar_upload_sheet.dart';
 import '../../widgets/valley_loader.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_unread_provider.dart';
@@ -423,9 +424,19 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Icon(avatarIcon, color: Colors.white, size: 22),
-                  ),
+                  child: ((conv['avatarUrl'] ?? '').toString().isNotEmpty)
+                      ? ClipOval(
+                          child: AvatarImage(
+                            url: conv['avatarUrl'].toString(),
+                            size: 48,
+                            fallback: Center(
+                              child: Icon(avatarIcon, color: Colors.white, size: 22),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Icon(avatarIcon, color: Colors.white, size: 22),
+                        ),
                 ),
                 // Green status indicator dot
                 Positioned(

@@ -56,6 +56,14 @@ const SettingsIcon = () => (
   </svg>
 );
 
+const CoinsIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M14.5 9.5a2.5 2.5 0 0 0-5 0c0 2.5 5 1.5 5 4a2.5 2.5 0 0 1-5 0" />
+    <path d="M12 7v10" />
+  </svg>
+);
+
 const UsersIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -80,7 +88,7 @@ const IssuesIcon = () => (
   </svg>
 );
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen = false, onNavigate }) => {
   const { logout, user } = useAuth();
   const { total: unreadChat } = useChatUnread();
 
@@ -91,6 +99,7 @@ const Sidebar = () => {
     { to: '/offers', label: 'Offers & Deals', icon: <OffersIcon /> },
     { to: '/riders', label: 'Riders Fleet', icon: <RidersIcon /> },
     { to: '/users', label: 'Registered Users', icon: <UsersIcon /> },
+    { to: '/coins', label: 'Valley Coins', icon: <CoinsIcon /> },
     { to: '/chat', label: 'Customer Support', icon: <ChatIcon />, badge: unreadChat },
     { to: '/issues', label: 'Reported Issues', icon: <IssuesIcon /> },
     { to: '/settings', label: 'Store Settings', icon: <SettingsIcon /> },
@@ -98,7 +107,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? ' is-open' : ''}`}>
       <div className="sidebar-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <LogoMark size={32} />
@@ -120,6 +129,7 @@ const Sidebar = () => {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              onClick={onNavigate}
             >
               <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
               <span>{item.label}</span>
